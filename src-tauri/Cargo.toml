@@ -1,0 +1,39 @@
+[package]
+name = "memorium"
+version = "2.1.0"
+description = "Memorium - Digital Memory Palace"
+authors = ["Memorium Contributors"]
+license = "MIT"
+repository = "https://github.com/Alekkk777/Memorium_open_v2"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "memorium_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+tokio = { version = "1", features = ["full"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1"
+base64 = "0.22"
+which = "6"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

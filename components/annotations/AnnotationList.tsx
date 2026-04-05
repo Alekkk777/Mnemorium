@@ -5,7 +5,7 @@ import { usePalaceStore } from '@/lib/store';
 import { Trash2, Plus, Sparkles, Edit2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import AnnotationModal from './AnnotationModal';
 import ImprovedAIFlow from './ImprovedAIFlow';
-import { imageDB } from '@/lib/imageDB';
+import { getImageUrl } from '@/lib/tauriImageStorage';
 
 interface AnnotationListProps {
   palace: Palace;
@@ -126,8 +126,8 @@ function AnnotationCard({ annotation, isExpanded, onView, onEdit, onDelete }: An
     
     const loadImage = async () => {
       try {
-        if (annotation.imageIndexedDBKey) {
-          const url = await imageDB.getImageUrl(annotation.imageIndexedDBKey);
+        if (annotation.imageFilePath) {
+          const url = await getImageUrl(annotation.imageFilePath);
           if (isMounted) setImageUrl(url);
         } else if (annotation.imageUrl) {
           if (isMounted) setImageUrl(annotation.imageUrl);
@@ -145,7 +145,7 @@ function AnnotationCard({ annotation, isExpanded, onView, onEdit, onDelete }: An
         URL.revokeObjectURL(imageUrl);
       }
     };
-  }, [annotation.imageIndexedDBKey, annotation.imageUrl]);
+  }, [annotation.imageFilePath, annotation.imageUrl]);
 
   return (
     <div className="bg-gray-50 rounded-lg overflow-hidden hover:bg-gray-100 transition-colors">

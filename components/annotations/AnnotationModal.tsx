@@ -1,9 +1,8 @@
-// components/annotations/AnnotationModal.tsx - VERSIONE COMPLETA E CORRETTA
 import { useState, useRef, useEffect } from 'react';
 import { X, Upload, Pencil, Eraser, Save, Palette } from 'lucide-react';
 import { Modal, ModalBody, ModalFooter } from '../ui/Modal';
 import { usePalaceStore } from '@/lib/store';
-import { imageDB, fileToDataURL } from '@/lib/imageDB';
+import { saveImageFile } from '@/lib/tauriImageStorage';
 import { Annotation } from '@/types';
 
 interface AnnotationModalProps {
@@ -17,34 +16,13 @@ interface AnnotationModalProps {
 
 type DrawMode = 'none' | 'draw' | 'erase';
 
-// ✅ Helper function per creare annotazioni con tutti i campi obbligatori
-const createNewAnnotation = (
-  text: string,
-  note: string,
-  position: { x: number; y: number; z: number },
-  imageUrl?: string,
-  imageIndexedDBKey?: string
-): Omit<Annotation, 'id' | 'createdAt'> => ({
-  text,
-  note,
+export default function AnnotationModal({
+  isOpen,
+  onClose,
+  palaceId,
+  imageId,
   position,
-  rotation: { x: 0, y: 0, z: 0 },
-  width: 1,
-  height: 1,
-  isVisible: true,
-  selected: false,
-  imageUrl,
-  imageIndexedDBKey,
-  isGenerated: false,
-});
-
-export default function AnnotationModal({ 
-  isOpen, 
-  onClose, 
-  palaceId, 
-  imageId, 
-  position,
-  editingAnnotation 
+  editingAnnotation,
 }: AnnotationModalProps) {
   const [text, setText] = useState('');
   const [note, setNote] = useState('');
@@ -55,14 +33,13 @@ export default function AnnotationModal({
   const [error, setError] = useState<string | null>(null);
   const [drawMode, setDrawMode] = useState<DrawMode>('draw');
   const [brushSize, setBrushSize] = useState(3);
-  const [color, setColor] = useState('#000000');
+  const [color, setColor] = useState('#e2e8f0');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawing = useRef(false);
 
   const { addAnnotation, updateAnnotation } = usePalaceStore();
 
-  // Carica dati se in modalità edit
   useEffect(() => {
     if (editingAnnotation) {
       setText(editingAnnotation.text);
@@ -72,7 +49,6 @@ export default function AnnotationModal({
         setImageSource('upload');
       }
     } else {
-      // Reset per nuova annotazione
       setText('');
       setNote('');
       setImageSource('none');
@@ -81,13 +57,12 @@ export default function AnnotationModal({
     }
   }, [editingAnnotation, isOpen]);
 
-  // Setup canvas
   useEffect(() => {
     if (imageSource === 'draw' && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.fillStyle = 'white';
+        ctx.fillStyle = '#1a1a28';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -103,15 +78,14 @@ export default function AnnotationModal({
       setError('Solo file immagine sono supportati');
       return;
     }
-
     if (file.size > 5 * 1024 * 1024) {
-      setError('L\'immagine deve essere sotto i 5MB');
+      setError("L'immagine deve essere sotto i 5MB");
       return;
     }
 
     setImageFile(file);
-    const preview = await fileToDataURL(file);
-    setImagePreview(preview);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
     setError(null);
   };
 
@@ -120,13 +94,9 @@ export default function AnnotationModal({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
-
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -134,7 +104,6 @@ export default function AnnotationModal({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
-
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -142,41 +111,28 @@ export default function AnnotationModal({
     if (drawMode === 'draw') {
       ctx.strokeStyle = color;
       ctx.lineWidth = brushSize;
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    } else if (drawMode === 'erase') {
-      ctx.strokeStyle = 'white';
+    } else {
+      ctx.strokeStyle = '#1a1a28';
       ctx.lineWidth = brushSize * 2;
-      ctx.lineTo(x, y);
-      ctx.stroke();
     }
+    ctx.lineTo(x, y);
+    ctx.stroke();
   };
 
-  const stopDrawing = () => {
-    isDrawing.current = false;
-  };
+  const stopDrawing = () => { isDrawing.current = false; };
 
   const clearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
-    
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = '#1a1a28';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
-  const saveDrawing = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    
-    return canvas.toDataURL('image/png');
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!text.trim()) {
-      setError('Inserisci il testo dell\'annotazione');
+      setError("Inserisci il testo dell'annotazione");
       return;
     }
 
@@ -184,43 +140,44 @@ export default function AnnotationModal({
     setError(null);
 
     try {
+      let imageFilePath: string | undefined;
       let imageUrl: string | undefined;
-      let imageIndexedDBKey: string | undefined;
 
-      // Salva l'immagine se presente
-      if (imageSource === 'draw') {
-        const drawingData = saveDrawing();
-        if (drawingData) {
-          imageUrl = drawingData;
-        }
+      if (imageSource === 'draw' && canvasRef.current) {
+        // Drawing saved as dataUrl (small enough inline)
+        imageUrl = canvasRef.current.toDataURL('image/png');
       } else if (imageSource === 'upload' && imageFile) {
-        if (imageFile.size > 1 * 1024 * 1024) {
-          imageIndexedDBKey = await imageDB.saveImage(imageFile);
+        if ((window as any).__TAURI__) {
+          const { relativePath } = await saveImageFile(imageFile, 'annotation_images');
+          imageFilePath = relativePath;
         } else {
-          imageUrl = imagePreview || undefined;
+          // Dev fallback: use object URL / preview
+          imageUrl = imagePreview ?? undefined;
         }
       }
 
       if (editingAnnotation) {
-        // Modifica annotazione esistente
-        updateAnnotation(palaceId, imageId, editingAnnotation.id, {
+        await updateAnnotation(palaceId, imageId, editingAnnotation.id, {
           text: text.trim(),
           note: note.trim(),
           imageUrl,
-          imageIndexedDBKey,
+          imageFilePath,
           updatedAt: new Date().toISOString(),
         });
       } else {
-        // ✅ Crea nuova annotazione usando la funzione helper
-        const newAnnotation = createNewAnnotation(
-          text.trim(),
-          note.trim(),
+        await addAnnotation(palaceId, imageId, {
+          text: text.trim(),
+          note: note.trim(),
           position,
+          rotation: { x: 0, y: 0, z: 0 },
+          width: 1,
+          height: 1,
+          isVisible: true,
+          selected: false,
           imageUrl,
-          imageIndexedDBKey
-        );
-        
-        addAnnotation(palaceId, imageId, newAnnotation);
+          imageFilePath,
+          isGenerated: false,
+        });
       }
 
       onClose();
@@ -233,18 +190,17 @@ export default function AnnotationModal({
   };
 
   return (
-    <Modal 
-      isOpen={isOpen} 
+    <Modal
+      isOpen={isOpen}
       onClose={onClose}
       title={editingAnnotation ? 'Modifica Annotazione' : 'Nuova Annotazione'}
       size="lg"
     >
-      <div onSubmit={handleSubmit}>
+      <div>
         <ModalBody>
           <div className="space-y-6">
-            {/* Testo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Testo/Concetto *
               </label>
               <input
@@ -252,14 +208,13 @@ export default function AnnotationModal({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder="Es: Formula chimica del glucosio"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent"
                 disabled={isSubmitting}
               />
             </div>
 
-            {/* Nota */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Nota/Spiegazione
               </label>
               <textarea
@@ -267,56 +222,35 @@ export default function AnnotationModal({
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Descrivi l'immagine mentale..."
                 rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
                 disabled={isSubmitting}
               />
             </div>
 
-            {/* Selettore tipo immagine */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-foreground mb-3">
                 Immagine Associata (opzionale)
               </label>
-              
+
               <div className="grid grid-cols-3 gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setImageSource('none')}
-                  className={`px-4 py-3 rounded-lg font-medium transition-colors ${
-                    imageSource === 'none'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Nessuna
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageSource('upload')}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                    imageSource === 'upload'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Upload className="w-4 h-4" />
-                  Carica
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setImageSource('draw')}
-                  className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                    imageSource === 'draw'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Pencil className="w-4 h-4" />
-                  Disegna
-                </button>
+                {(['none', 'upload', 'draw'] as const).map((src) => (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setImageSource(src)}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                      imageSource === src
+                        ? 'bg-accent text-white'
+                        : 'bg-surface text-muted hover:text-foreground hover:bg-white/10'
+                    }`}
+                  >
+                    {src === 'none' && 'Nessuna'}
+                    {src === 'upload' && <><Upload className="w-4 h-4" /> Carica</>}
+                    {src === 'draw' && <><Pencil className="w-4 h-4" /> Disegna</>}
+                  </button>
+                ))}
               </div>
 
-              {/* Upload Section */}
               {imageSource === 'upload' && (
                 <div>
                   {imagePreview ? (
@@ -324,29 +258,22 @@ export default function AnnotationModal({
                       <img
                         src={imagePreview}
                         alt="Preview"
-                        className="w-full rounded-lg max-h-64 object-contain bg-gray-50"
+                        className="w-full rounded-lg max-h-64 object-contain bg-surface"
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          setImageFile(null);
-                          setImagePreview(null);
-                        }}
-                        className="absolute top-2 right-2 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                        onClick={() => { setImageFile(null); setImagePreview(null); }}
+                        className="absolute top-2 right-2 p-2 bg-surface rounded-lg shadow-lg hover:bg-white/10 transition-colors"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-4 h-4 text-foreground" />
                       </button>
                     </div>
                   ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-gray-100">
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-12 h-12 text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-600 font-medium mb-1">
-                          Carica un'immagine
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          PNG, JPG fino a 5MB
-                        </p>
+                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-accent transition-colors bg-surface">
+                      <div className="flex flex-col items-center pt-5 pb-6">
+                        <Upload className="w-12 h-12 text-muted mb-3" />
+                        <p className="text-sm text-muted font-medium mb-1">Carica un&apos;immagine</p>
+                        <p className="text-xs text-muted">PNG, JPG fino a 5MB</p>
                       </div>
                       <input
                         type="file"
@@ -360,72 +287,59 @@ export default function AnnotationModal({
                 </div>
               )}
 
-              {/* Draw Section */}
               {imageSource === 'draw' && (
                 <div className="space-y-3">
-                  {/* Toolbar */}
-                  <div className="flex flex-wrap items-center gap-2 p-3 bg-gray-100 rounded-lg">
+                  <div className="flex flex-wrap items-center gap-2 p-3 bg-surface rounded-lg">
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setDrawMode('draw')}
                         className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-medium ${
-                          drawMode === 'draw'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-white text-gray-700 hover:bg-gray-200'
+                          drawMode === 'draw' ? 'bg-accent text-white' : 'bg-white/10 text-muted hover:text-foreground'
                         }`}
                       >
-                        <Pencil className="w-4 h-4" />
-                        Disegna
+                        <Pencil className="w-4 h-4" /> Disegna
                       </button>
                       <button
                         type="button"
                         onClick={() => setDrawMode('erase')}
                         className={`flex items-center gap-1 px-3 py-2 rounded text-sm font-medium ${
-                          drawMode === 'erase'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-white text-gray-700 hover:bg-gray-200'
+                          drawMode === 'erase' ? 'bg-accent text-white' : 'bg-white/10 text-muted hover:text-foreground'
                         }`}
                       >
-                        <Eraser className="w-4 h-4" />
-                        Gomma
+                        <Eraser className="w-4 h-4" /> Gomma
                       </button>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 ml-auto">
-                      <div className="flex items-center gap-2 px-2">
-                        <Palette className="w-4 h-4 text-gray-600" />
-                        <input
-                          type="color"
-                          value={color}
-                          onChange={(e) => setColor(e.target.value)}
-                          className="w-10 h-10 rounded cursor-pointer border border-gray-300"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="1"
-                          max="20"
-                          value={brushSize}
-                          onChange={(e) => setBrushSize(Number(e.target.value))}
-                          className="w-20"
-                        />
-                        <span className="text-sm text-gray-600 w-10">{brushSize}px</span>
-                      </div>
+                      <Palette className="w-4 h-4 text-muted" />
+                      <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => setColor(e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border border-white/10"
+                      />
+                      <input
+                        type="range"
+                        min="1"
+                        max="20"
+                        value={brushSize}
+                        onChange={(e) => setBrushSize(Number(e.target.value))}
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted w-8">{brushSize}px</span>
                     </div>
 
                     <button
                       type="button"
                       onClick={clearCanvas}
-                      className="px-3 py-2 bg-white text-gray-700 rounded hover:bg-gray-200 text-sm font-medium"
+                      className="px-3 py-2 bg-white/10 text-muted hover:text-foreground rounded text-sm font-medium"
                     >
                       Pulisci
                     </button>
                   </div>
 
-                  {/* Canvas */}
-                  <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+                  <div className="border border-white/10 rounded-lg overflow-hidden">
                     <canvas
                       ref={canvasRef}
                       width={700}
@@ -434,7 +348,7 @@ export default function AnnotationModal({
                       onMouseMove={draw}
                       onMouseUp={stopDrawing}
                       onMouseLeave={stopDrawing}
-                      className="w-full cursor-crosshair bg-white"
+                      className="w-full cursor-crosshair"
                       style={{ touchAction: 'none' }}
                     />
                   </div>
@@ -442,9 +356,8 @@ export default function AnnotationModal({
               )}
             </div>
 
-            {/* Error */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                 {error}
               </div>
             )}
@@ -455,16 +368,16 @@ export default function AnnotationModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-6 py-2 text-muted hover:text-foreground hover:bg-white/10 rounded-lg transition-colors"
             disabled={isSubmitting}
           >
             Annulla
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex items-center gap-2 px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             <Save className="w-4 h-4" />
             {isSubmitting ? 'Salvataggio...' : editingAnnotation ? 'Salva Modifiche' : 'Crea Annotazione'}

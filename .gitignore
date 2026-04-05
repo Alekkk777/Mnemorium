@@ -53,3 +53,29 @@ logs
 
 # OS
 Thumbs.db
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Python
+python-server/__pycache__/
+python-server/*.pyc
+python-server/.venv/
+python-server/venv/
+python-server/dist/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Vitest
+coverage/
+
+# Tauri build artifacts
+*.dmg
+*.exe
+*.AppImage
+*.msi
+*.deb
+*.rpm

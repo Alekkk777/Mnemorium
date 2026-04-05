@@ -5,7 +5,7 @@ import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Palace, Annotation } from '@/types';
 import { usePalaceStore, useUIStore } from '@/lib/store';
-import { imageDB } from '@/lib/imageDB';
+import { getImageUrl } from '@/lib/tauriImageStorage';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, MousePointer, Edit2, Plus } from 'lucide-react';
 import AnnotationModal from '../annotations/AnnotationModal';
 import ImprovedAIFlow from '../annotations/ImprovedAIFlow';
@@ -33,22 +33,37 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
   const currentImage = palace.images[currentImageIndex];
   const totalAnnotations = currentImage?.annotations.length || 0;
 
-  // Carica l'immagine
+  // Carica l'immagine (Tauri filesystem o data URL legacy)
   useEffect(() => {
+    let revoked = false;
     const loadImage = async () => {
       if (!currentImage) return;
 
-      if (currentImage.indexedDBKey) {
-        const url = await imageDB.getImageUrl(currentImage.indexedDBKey);
-        setImageUrl(url);
+      if (currentImage.localFilePath) {
+        try {
+          const url = await getImageUrl(currentImage.localFilePath);
+          if (!revoked) setImageUrl(url);
+        } catch (e) {
+          console.error('[PalaceViewer] Failed to load image:', e);
+        }
       } else if (currentImage.dataUrl) {
         setImageUrl(currentImage.dataUrl);
+      } else if (currentImage.indexedDBKey) {
+        // Legacy fallback: IndexedDB (web app data, pre-migration)
+        try {
+          const { imageDB } = await import('@/lib/imageDB');
+          const url = await imageDB.getImageUrl(currentImage.indexedDBKey);
+          if (!revoked) setImageUrl(url);
+        } catch (e) {
+          console.error('[PalaceViewer] IndexedDB fallback failed:', e);
+        }
       }
     };
 
     loadImage();
 
     return () => {
+      revoked = true;
       if (imageUrl && imageUrl.startsWith('blob:')) {
         URL.revokeObjectURL(imageUrl);
       }
@@ -380,18 +395,41 @@ interface AnnotationMarkerProps {
   onEdit: () => void;
 }
 
+/** Returns FSRS-based marker color: green=well-known, yellow=due soon, red=overdue, white=new */
+function fsrsMarkerColor(annotation: Annotation): string {
+  const card = annotation.fsrsCard;
+  if (!card || card.state === 0) return '#ffffff'; // New
+  const now = Date.now();
+  if (!card.due) return '#10b981'; // No due date = well known
+  const dueMs = card.due.getTime();
+  const diff = dueMs - now;
+  if (diff < 0) return '#ef4444';                 // Overdue — red
+  if (diff < 24 * 60 * 60 * 1000) return '#f59e0b'; // Due within 24h — yellow
+  return '#10b981';                               // Due in future — green
+}
+
 function AnnotationMarker({ annotation, is360, isSelected, onClick, onEdit }: AnnotationMarkerProps) {
   const [hovered, setHovered] = useState(false);
   const [annotationImageUrl, setAnnotationImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let revoked = false;
     const loadAnnotationImage = async () => {
-      if (annotation.imageIndexedDBKey) {
+      if (annotation.imageFilePath) {
         try {
-          const url = await imageDB.getImageUrl(annotation.imageIndexedDBKey);
-          setAnnotationImageUrl(url);
+          const url = await getImageUrl(annotation.imageFilePath);
+          if (!revoked) setAnnotationImageUrl(url);
         } catch (error) {
-          console.error('Error loading annotation image:', error);
+          console.error('Error loading annotation image from filesystem:', error);
+        }
+      } else if (annotation.imageIndexedDBKey) {
+        // Legacy IndexedDB fallback
+        try {
+          const { imageDB } = await import('@/lib/imageDB');
+          const url = await imageDB.getImageUrl(annotation.imageIndexedDBKey);
+          if (!revoked) setAnnotationImageUrl(url);
+        } catch (error) {
+          console.error('Error loading annotation image from IndexedDB:', error);
         }
       } else if (annotation.imageUrl) {
         setAnnotationImageUrl(annotation.imageUrl);
@@ -401,6 +439,7 @@ function AnnotationMarker({ annotation, is360, isSelected, onClick, onEdit }: An
     loadAnnotationImage();
 
     return () => {
+      revoked = true;
       if (annotationImageUrl && annotationImageUrl.startsWith('blob:')) {
         URL.revokeObjectURL(annotationImageUrl);
       }
@@ -424,7 +463,7 @@ function AnnotationMarker({ annotation, is360, isSelected, onClick, onEdit }: An
       >
         <sphereGeometry args={[isSelected ? 0.15 : 0.1, 16, 16]} />
         <meshBasicMaterial
-          color={isSelected ? '#3b82f6' : hovered ? '#60a5fa' : '#ffffff'}
+          color={isSelected ? '#3b82f6' : hovered ? '#60a5fa' : fsrsMarkerColor(annotation)}
           transparent
           opacity={0.9}
         />

@@ -1,0 +1,10 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+httpx==0.27.0
+pydantic==2.9.0
+# Image generation (opt-in, heavy)
+# diffusers>=0.30.0
+# transformers>=4.44.0
+# accelerate>=0.33.0
+# torch>=2.4.0
+# Uncomment above for FLUX.1 Schnell image generation

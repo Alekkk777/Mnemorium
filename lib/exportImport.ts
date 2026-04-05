@@ -1,166 +1,192 @@
-// lib/exportImport.ts - Export/Import CORRETTO
+/**
+ * exportImport.ts
+ * Export/Import logic for Tauri desktop app.
+ * Uses Tauri dialog + fs plugins instead of browser download links.
+ * Falls back to browser Blob download when running outside Tauri (dev mode).
+ */
+
 import { Palace, ExportData } from '@/types';
-import { imageDB } from './imageDB';
+import { readImageAsBase64, saveBase64Image } from './tauriImageStorage';
+import { getPalaces, createPalace, addPalaceImage, addAnnotation } from './tauriStorage';
+
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).__TAURI__;
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
 
 export async function exportBackup(palaces: Palace[]): Promise<void> {
   try {
+    // Embed images as base64 in the export file
     const imagesMap: Record<string, string> = {};
 
     for (const palace of palaces) {
       for (const image of palace.images) {
-        if (image.indexedDBKey) {
-          const file = await imageDB.getImage(image.indexedDBKey);
-          if (file) {
-            const dataUrl = await fileToDataURL(file);
-            imagesMap[image.indexedDBKey] = dataUrl;
+        if (image.localFilePath) {
+          try {
+            const b64 = await readImageAsBase64(image.localFilePath);
+            imagesMap[image.localFilePath] = b64;
+          } catch {
+            // Skip unreadable images
           }
         }
-
         for (const annotation of image.annotations) {
-          if (annotation.imageIndexedDBKey) {
-            const file = await imageDB.getImage(annotation.imageIndexedDBKey);
-            if (file) {
-              const dataUrl = await fileToDataURL(file);
-              imagesMap[annotation.imageIndexedDBKey] = dataUrl;
+          if (annotation.imageFilePath) {
+            try {
+              const b64 = await readImageAsBase64(annotation.imageFilePath);
+              imagesMap[annotation.imageFilePath] = b64;
+            } catch {
+              // Skip
             }
           }
         }
       }
     }
 
-    const exportData: ExportData = {
+    const exportData: ExportData & { images?: Record<string, string> } = {
       version: '2.0.0',
       exportDate: new Date().toISOString(),
-      palaces: palaces,
-    };
-
-    const fullExport = {
-      ...exportData,
+      palaces,
       images: Object.keys(imagesMap).length > 0 ? imagesMap : undefined,
     };
 
-    const dataStr = JSON.stringify(fullExport, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `memorium-backup-${Date.now()}.json`;
-    link.click();
-    
-    URL.revokeObjectURL(url);
-    console.log('✅ Backup esportato con successo');
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const fileName = `memorium-backup-${Date.now()}.memorium`;
+
+    if (isTauri()) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore — plugin installed at Tauri build time
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      // @ts-ignore
+      const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+      const filePath = await save({
+        defaultPath: fileName,
+        filters: [{ name: 'Memorium Backup', extensions: ['memorium', 'json'] }],
+      });
+
+      if (filePath) {
+        await writeTextFile(filePath, dataStr);
+      }
+    } else {
+      // Browser fallback for dev mode
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
   } catch (error) {
-    console.error('Errore durante l\'export:', error);
+    console.error("Errore durante l'export:", error);
     throw new Error('Impossibile esportare il backup');
   }
 }
 
-export async function importBackup(file: File): Promise<Palace[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        const backup = JSON.parse(e.target?.result as string);
-        
-        if (!backup.palaces || !Array.isArray(backup.palaces)) {
-          throw new Error('Formato backup non valido');
+// ─── Import ───────────────────────────────────────────────────────────────────
+
+export async function importBackup(): Promise<void> {
+  try {
+    let dataStr: string;
+
+    if (isTauri()) {
+      // @ts-ignore — plugin installed at Tauri build time
+      const { open } = await import('@tauri-apps/plugin-dialog');
+      // @ts-ignore
+      const { readTextFile } = await import('@tauri-apps/plugin-fs');
+
+      const filePath = await open({
+        filters: [{ name: 'Memorium Backup', extensions: ['memorium', 'json'] }],
+        multiple: false,
+      });
+
+      if (!filePath || typeof filePath !== 'string') return;
+      dataStr = await readTextFile(filePath);
+    } else {
+      // Browser fallback: open file picker
+      dataStr = await new Promise((resolve, reject) => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.memorium,.json';
+        input.onchange = (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) { reject(new Error('No file selected')); return; }
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsText(file);
+        };
+        input.click();
+      });
+    }
+
+    const backup = JSON.parse(dataStr);
+    if (!backup.palaces || !Array.isArray(backup.palaces)) {
+      throw new Error('Formato backup non valido');
+    }
+
+    // Restore embedded images
+    const keyRemap: Record<string, string> = {};
+    if (backup.images && typeof backup.images === 'object') {
+      for (const [oldPath, b64] of Object.entries(backup.images)) {
+        try {
+          const ext = oldPath.split('.').pop() ?? 'jpg';
+          const fileName = `imported_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+          const subdir = oldPath.includes('annotation') ? 'annotation_images' : 'palace_images';
+          const result = await saveBase64Image(b64 as string, fileName, subdir);
+          keyRemap[oldPath] = result.relativePath;
+        } catch {
+          console.error(`Failed to restore image: ${oldPath}`);
         }
-
-        const palaces: Palace[] = [];
-
-        if (backup.images && typeof backup.images === 'object') {
-          for (const [key, dataUrl] of Object.entries(backup.images)) {
-            try {
-              const file = await dataURLToFile(dataUrl as string, key);
-              await imageDB.saveImage(file);
-            } catch (error) {
-              console.error(`Errore ripristino immagine ${key}:`, error);
-            }
-          }
-        }
-
-        for (const palaceData of backup.palaces) {
-          const palace: Palace = {
-            ...palaceData,
-            id: `palace_${Date.now()}_${Math.random()}`,
-            _id: `palace_${Date.now()}_${Math.random()}`,
-            createdAt: new Date(palaceData.createdAt),
-            updatedAt: new Date(palaceData.updatedAt),
-          };
-
-          palace.images = palace.images.map(img => ({
-            ...img,
-            id: `img_${Date.now()}_${Math.random()}`,
-          }));
-
-          palaces.push(palace);
-        }
-
-        resolve(palaces);
-      } catch (error) {
-        reject(new Error('Errore parsing backup: ' + (error as Error).message));
       }
-    };
-    
-    reader.onerror = () => reject(new Error('Errore lettura file'));
-    reader.readAsText(file);
-  });
-}
+    }
 
-function fileToDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
+    // Restore palaces
+    for (const palaceData of backup.palaces) {
+      const row = await createPalace(palaceData.name, palaceData.description);
+      const palaceId = row.id;
 
-function dataURLToFile(dataUrl: string, filename: string): Promise<File> {
-  return fetch(dataUrl)
-    .then(res => res.blob())
-    .then(blob => new File([blob], filename, { type: blob.type }));
-}
+      for (const imageData of (palaceData.images ?? [])) {
+        const newLocalPath = imageData.localFilePath
+          ? keyRemap[imageData.localFilePath] ?? imageData.localFilePath
+          : undefined;
 
-export function exportPalace(palace: Palace): void {
-  const dataStr = JSON.stringify(palace, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${palace.name.replace(/\s+/g, '-')}_${Date.now()}.json`;
-  link.click();
-  
-  URL.revokeObjectURL(url);
-}
+        const imageRow = await addPalaceImage({
+          palaceId,
+          name: imageData.name,
+          fileName: imageData.fileName,
+          localFilePath: newLocalPath,
+          width: imageData.width ?? 0,
+          height: imageData.height ?? 0,
+          is360: imageData.is360 ?? false,
+          sortOrder: 0,
+        });
 
-export async function importPalace(file: File): Promise<Palace> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const palace = JSON.parse(e.target?.result as string);
-        
-        if (!palace.id && !palace._id || !palace.name || !Array.isArray(palace.images)) {
-          throw new Error('Formato palazzo non valido');
+        for (const ann of (imageData.annotations ?? [])) {
+          const newImageFilePath = ann.imageFilePath
+            ? keyRemap[ann.imageFilePath] ?? ann.imageFilePath
+            : undefined;
+
+          await addAnnotation({
+            imageId: imageRow.id,
+            text: ann.text,
+            note: ann.note,
+            posX: ann.position?.x ?? 0,
+            posY: ann.position?.y ?? 0,
+            posZ: ann.position?.z ?? 0,
+            rotX: ann.rotation?.x ?? 0,
+            rotY: ann.rotation?.y ?? 0,
+            rotZ: ann.rotation?.z ?? 0,
+            isGenerated: ann.isGenerated ?? false,
+            imageFilePath: newImageFilePath,
+            aiPrompt: ann.aiPrompt,
+          });
         }
-        
-        palace.id = `palace_${Date.now()}`;
-        palace._id = `palace_${Date.now()}`;
-        palace.createdAt = new Date(palace.createdAt || Date.now());
-        palace.updatedAt = new Date(palace.updatedAt || Date.now());
-        
-        resolve(palace);
-      } catch (error) {
-        reject(new Error('Errore parsing file JSON'));
       }
-    };
-    
-    reader.onerror = () => reject(new Error('Errore lettura file'));
-    reader.readAsText(file);
-  });
+    }
+  } catch (error) {
+    console.error("Errore durante l'import:", error);
+    throw new Error('Impossibile importare il backup: ' + (error as Error).message);
+  }
 }

@@ -1,22 +1,35 @@
 {
-  "name": "memorium-v2",
-  "version": "2.0.0",
+  "name": "memorium",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
-    "next": "^14.0.0",
+    "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "zustand": "^4.4.6",
     "@react-three/fiber": "^8.15.0",
     "@react-three/drei": "^9.88.0",
     "three": "^0.160.0",
-    "lucide-react": "^0.294.0"
+    "lucide-react": "^0.294.0",
+    "ts-fsrs": "^4.0.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -28,6 +41,11 @@
     "eslint-config-next": "^14.0.0",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6"
+    "tailwindcss": "^3.3.6",
+    "vitest": "^1.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "@playwright/test": "^1.41.0",
+    "@tauri-apps/cli": "^2.0.0"
   }
 }

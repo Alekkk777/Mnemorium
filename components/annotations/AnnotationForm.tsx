@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { usePalaceStore, useUIStore } from '@/lib/store';
-import { imageDB, fileToDataURL } from '@/lib/imageDB';
 
 interface AnnotationFormProps {
   palaceId: string;
@@ -36,8 +35,7 @@ export default function AnnotationForm({ palaceId, imageId }: AnnotationFormProp
     }
 
     setImageFile(file);
-    const preview = await fileToDataURL(file);
-    setImagePreview(preview);
+    setImagePreview(URL.createObjectURL(file));
     setError(null);
   };
 
@@ -60,13 +58,14 @@ export default function AnnotationForm({ palaceId, imageId }: AnnotationFormProp
     try {
       // Salva l'immagine se presente
       let imageUrl: string | undefined;
-      let imageIndexedDBKey: string | undefined;
 
       if (imageFile) {
-        if (imageFile.size > 1 * 1024 * 1024) { // > 1MB
-          imageIndexedDBKey = await imageDB.saveImage(imageFile);
+        if ((window as any).__TAURI__) {
+          const { saveImageFile: saveFn } = await import('@/lib/tauriImageStorage');
+          const result = await saveFn(imageFile, 'annotation_images');
+          imageUrl = result.relativePath;
         } else {
-          imageUrl = await fileToDataURL(imageFile);
+          imageUrl = imagePreview ?? undefined;
         }
       }
 
@@ -88,7 +87,6 @@ export default function AnnotationForm({ palaceId, imageId }: AnnotationFormProp
         isVisible: true,
         selected: false,
         imageUrl,
-        imageIndexedDBKey,
         isGenerated: false,
       });
 

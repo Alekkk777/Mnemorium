@@ -1,7 +1,7 @@
 // components/CreatePalaceModal.tsx - Convertito a Zustand
 import React, { useState, useCallback } from "react";
 import { usePalaceStore } from "@/lib/store";
-import { compressImage } from "@/lib/imageDB";
+import { compressImage } from "@/lib/imageUtils";
 import styles from "../styles/components_style/CreatePalaceStyle/CreatePalaceModal.module.css";
 
 interface CreatePalaceModalProps {
@@ -104,8 +104,8 @@ const CreatePalaceModal: React.FC<CreatePalaceModalProps> = ({ onClose }) => {
         await addPalace({
           name: palaceName,
           description: `Created on ${new Date().toLocaleDateString()}`,
-          images: compressedImages,
         });
+        // Note: legacy component — images now saved separately via addImage()
 
       console.log("✅ Palace created successfully!");
       onClose();
