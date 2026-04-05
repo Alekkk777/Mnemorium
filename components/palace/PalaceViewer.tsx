@@ -8,6 +8,7 @@ import { usePalaceStore, useUIStore } from '@/lib/store';
 import { getImageUrl } from '@/lib/tauriImageStorage';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, MousePointer, Edit2, Plus } from 'lucide-react';
 import AnnotationModal from '../annotations/AnnotationModal';
+import AnnotationStickyNote from '../annotations/AnnotationStickyNote';
 import ImprovedAIFlow from '../annotations/ImprovedAIFlow';
 
 interface PalaceViewerProps {
@@ -26,8 +27,16 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [showAIFlow, setShowAIFlow] = useState(false);
-  
-  // 🆕 Tooltip state
+  const [stickyNote, setStickyNote] = useState<{
+    position3D: { x: number; y: number; z: number };
+    screenX: number;
+    screenY: number;
+  } | null>(null);
+
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
+  const lastMousePos = useRef<{ clientX: number; clientY: number }>({ clientX: 0, clientY: 0 });
+
+  // Tooltip state
   const [hoveredControl, setHoveredControl] = useState<string | null>(null);
 
   const currentImage = palace.images[currentImageIndex];
@@ -70,6 +79,50 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
     };
   }, [currentImage]);
 
+  // Helper: convert normalized canvas coords (-1..1) to 3D position
+  const normTo3D = (nx: number, ny: number) => {
+    if (!currentImage) return { x: 0, y: 0, z: 0 };
+    if (currentImage.is360) {
+      const theta = nx * Math.PI;
+      const phi = (ny * 0.5 + 0.5) * Math.PI;
+      return {
+        x: Math.sin(phi) * Math.cos(theta),
+        y: Math.cos(phi),
+        z: Math.sin(phi) * Math.sin(theta),
+      };
+    }
+    return { x: nx * 8, y: ny * 4.5, z: -9 };
+  };
+
+  // Keyboard shortcut N → quick sticky note at current mouse position
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'n' && e.key !== 'N') return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (isPlacingAnnotation || isModalOpen) return;
+      if (!currentImage) return;
+
+      e.preventDefault();
+
+      const wrapper = canvasWrapperRef.current;
+      if (!wrapper) return;
+      const rect = wrapper.getBoundingClientRect();
+      const { clientX, clientY } = lastMousePos.current;
+      const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+
+      setStickyNote({
+        position3D: normTo3D(nx, ny),
+        screenX: clientX,
+        screenY: clientY,
+      });
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isPlacingAnnotation, isModalOpen, currentImage]);
+
   const handlePrevImage = () => {
     const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : palace.images.length - 1;
     setCurrentImage(newIndex);
@@ -86,29 +139,10 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
     if (!isPlacingAnnotation) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const ny = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    let position3D: { x: number; y: number; z: number };
-
-    if (currentImage.is360) {
-      const theta = x * Math.PI;
-      const phi = (y * 0.5 + 0.5) * Math.PI;
-
-      position3D = {
-        x: Math.sin(phi) * Math.cos(theta),
-        y: Math.cos(phi),
-        z: Math.sin(phi) * Math.sin(theta)
-      };
-    } else {
-      position3D = {
-        x: x * 8,
-        y: y * 4.5,
-        z: -9
-      };
-    }
-
-    setPendingPosition(position3D);
+    setPendingPosition(normTo3D(nx, ny));
     setIsPlacingAnnotation(false);
     setIsModalOpen(true);
   };
@@ -138,9 +172,11 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
 
   return (
     <div className="relative h-full">
-      <div 
+      <div
+        ref={canvasWrapperRef}
         className="absolute inset-0"
         onClick={isPlacingAnnotation ? handleCanvasClick : undefined}
+        onMouseMove={(e) => { lastMousePos.current = { clientX: e.clientX, clientY: e.clientY }; }}
         style={{ cursor: isPlacingAnnotation ? 'crosshair' : 'default' }}
       >
         <Canvas camera={{ position: [0, 0, 0.1], fov: 75 }}>
@@ -219,11 +255,11 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
               onClick={() => setIsPlacingAnnotation(true)}
               onMouseEnter={() => setHoveredControl('add')}
               onMouseLeave={() => setHoveredControl(null)}
-              className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+              className="relative flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors font-medium"
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline text-sm">Nuova</span>
-              {hoveredControl === 'add' && <Tooltip text="Aggiungi nuova annotazione" />}
+              {hoveredControl === 'add' && <Tooltip text="Nuova annotazione (oppure premi N)" />}
             </button>
           </div>
         </div>
@@ -285,6 +321,18 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
           imageId={currentImage.id}
           position={pendingPosition}
           editingAnnotation={editingAnnotation}
+        />
+      )}
+
+      {/* Sticky Note (shortcut N) */}
+      {stickyNote && currentImage && (
+        <AnnotationStickyNote
+          palaceId={palace._id}
+          imageId={currentImage.id}
+          position={stickyNote.position3D}
+          screenX={stickyNote.screenX}
+          screenY={stickyNote.screenY}
+          onClose={() => setStickyNote(null)}
         />
       )}
 

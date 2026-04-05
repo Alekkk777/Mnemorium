@@ -41,11 +41,16 @@ function MyApp({ Component, pageProps }: AppProps) {
         // 3. Load palaces from SQLite
         await loadPalaces();
 
-        // 4. Check if migration from web app is needed
-        setShowMigration(true);
+        // 4. Check if migration from web app is needed (MigrationDialog auto-completes if nothing to do)
+        const migrationDone = await getSetting<boolean>('migration_v2_done').catch(() => null);
+        if (migrationDone) {
+          // Already migrated — skip dialog, show app directly
+          setAppReady(true);
+        } else {
+          setShowMigration(true);
+        }
       } catch (error) {
         console.error('[app] Boot error:', error);
-        // Graceful degradation: show app anyway
         setAppReady(true);
       }
     }
