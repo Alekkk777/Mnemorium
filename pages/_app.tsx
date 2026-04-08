@@ -26,6 +26,12 @@ function MyApp({ Component, pageProps }: AppProps) {
   const [migrationDone, setMigrationDone] = useState(false);
 
   useEffect(() => {
+    // In Tauri: landing page is only for the web — redirect to the app
+    if (isLanding && isTauri()) {
+      router.replace('/userhome');
+      return;
+    }
+
     // Landing page in browser (Vercel) — skip all Tauri boot logic
     if (isLanding && !isTauri()) {
       setAppReady(true);
@@ -98,11 +104,11 @@ function MyApp({ Component, pageProps }: AppProps) {
         <MigrationDialog onComplete={onMigrationComplete} />
       )}
 
-      {/* Main App — landing page always renders, app pages wait for boot */}
-      {isLanding ? (
+      {/* Main App — landing page renders only in browser; in Tauri redirect to /userhome */}
+      {isLanding && !isTauri() ? (
         <Component {...pageProps} />
       ) : (
-        (appReady || migrationDone) && !showWizard && (
+        !isLanding && (appReady || migrationDone) && !showWizard && (
           <>
             <Component {...pageProps} />
             <AIStatusBar />
