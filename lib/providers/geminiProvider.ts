@@ -9,14 +9,24 @@ import { AIProvider, AIProviderType, VisionObject } from '@/types/ai';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const TEXT_MODEL = 'gemini-1.5-flash';
 const VISION_MODEL = 'gemini-1.5-flash';
-const LS_KEY = 'memorium_gemini_key';
+const LS_KEY = 'mnemorium_gemini_key';
 
 const MNEMONIC_SYSTEM =
   'Sei un esperto di tecniche mnemoniche. Trasforma il concetto in un\'immagine mentale VIVIDA, bizzarra e memorabile. ' +
   'Usa colori brillanti, azioni esagerate. Max 150 parole. Rispondi solo con l\'immagine, nessuna introduzione.';
 
 export function saveGeminiKey(key: string): void {
-  localStorage.setItem(LS_KEY, btoa(key));
+  const encoded = btoa(key);
+  localStorage.setItem(LS_KEY, encoded);
+  // Also persist to SQLite so it survives WebView rebuilds
+  if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+    import('@tauri-apps/api/core').then(({ invoke }) =>
+      (invoke as (cmd: string, a?: unknown) => Promise<void>)('set_setting', {
+        key: 'gemini_api_key_b64',
+        value: encoded,
+      })
+    ).catch(() => {});
+  }
 }
 
 export function getGeminiKey(): string | null {
@@ -27,6 +37,14 @@ export function getGeminiKey(): string | null {
 
 export function clearGeminiKey(): void {
   localStorage.removeItem(LS_KEY);
+  if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+    import('@tauri-apps/api/core').then(({ invoke }) =>
+      (invoke as (cmd: string, a?: unknown) => Promise<void>)('set_setting', {
+        key: 'gemini_api_key_b64',
+        value: null,
+      })
+    ).catch(() => {});
+  }
 }
 
 async function geminiRequest(
@@ -74,7 +92,7 @@ export class GeminiProvider implements AIProvider {
   }
 
   async generateImage(_prompt: string): Promise<string> {
-    throw new Error('Generazione immagini non supportata con Gemini. Usa il provider locale.');
+    throw new Error('Image generation not supported with Gemini. Use the local provider.');
   }
 
   async analyzeImage(imageBase64: string): Promise<VisionObject[]> {
@@ -107,6 +125,40 @@ export class GeminiProvider implements AIProvider {
       const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(clean);
       return parsed.objects ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  async generateAnnotationsBatch(
+    notesText: string,
+    targetCount: number,
+    imagesCount: number,
+    language = 'italiano'
+  ): Promise<Array<{ description: string; note: string; imageIndex: number }>> {
+    const key = getGeminiKey();
+    if (!key) throw new Error('Gemini API key non configurata');
+
+    const systemPrompt =
+      `Sei un esperto di tecniche mnemoniche (metodo dei loci). ` +
+      `Distribuisci ${targetCount} annotazioni su ${imagesCount} immagini. ` +
+      `Per ogni annotazione: description (concetto, max 50 char), note (immagine mnemonica vivida in ${language}, max 200 char), imageIndex (0-${imagesCount - 1}). ` +
+      `Rispondi SOLO con JSON valido: {"annotations":[{"description":"...","note":"...","imageIndex":0}]}`;
+
+    const raw = await geminiRequest(TEXT_MODEL, key, [
+      {
+        role: 'user',
+        parts: [
+          { text: systemPrompt },
+          { text: `Testo da memorizzare:\n\n${notesText}` },
+        ],
+      },
+    ]);
+
+    try {
+      const clean = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(clean);
+      return parsed.annotations ?? [];
     } catch {
       return [];
     }

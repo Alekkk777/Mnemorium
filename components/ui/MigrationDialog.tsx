@@ -63,26 +63,26 @@ export default function MigrationDialog({ onComplete }: MigrationDialogProps) {
                 <Database className="w-6 h-6 text-accent" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground">Migrazione dati</h2>
-                <p className="text-sm text-muted">Dati web app rilevati</p>
+                <h2 className="text-lg font-bold text-foreground">Data migration</h2>
+                <p className="text-sm text-muted">Web app data detected</p>
               </div>
             </div>
             <p className="text-sm text-foreground/80 mb-6">
-              Abbiamo trovato palazzi salvati dalla versione web di Memorium.
-              Vuoi importarli nell'app desktop? I dati originali vengono conservati come backup.
+              We found palaces saved from the web version of Mnemorium.
+              Do you want to import them into the desktop app? The original data is preserved as a backup.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={startMigration}
                 className="flex-1 px-4 py-2.5 bg-accent hover:bg-accent/80 text-white rounded-xl font-medium transition-colors"
               >
-                Importa dati
+                Import data
               </button>
               <button
                 onClick={onComplete}
                 className="px-4 py-2.5 text-muted hover:text-foreground rounded-xl transition-colors"
               >
-                Salta
+                Skip
               </button>
             </div>
           </>
@@ -90,7 +90,7 @@ export default function MigrationDialog({ onComplete }: MigrationDialogProps) {
 
         {phase === 'running' && (
           <>
-            <h2 className="text-lg font-bold text-foreground mb-2">Migrazione in corso…</h2>
+            <h2 className="text-lg font-bold text-foreground mb-2">Migration in progress…</h2>
             <p className="text-sm text-muted mb-4">{step}</p>
             <div className="w-full bg-white/10 rounded-full h-2 mb-2">
               <div
@@ -106,19 +106,19 @@ export default function MigrationDialog({ onComplete }: MigrationDialogProps) {
           <>
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-400" />
-              <h2 className="text-lg font-bold text-foreground">Migrazione completata!</h2>
+              <h2 className="text-lg font-bold text-foreground">Migration completed!</h2>
             </div>
             <div className="bg-white/5 rounded-xl p-4 mb-6 space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted">Palazzi importati</span>
+                <span className="text-muted">Palaces imported</span>
                 <span className="font-bold text-foreground">{result.palaces}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Immagini importate</span>
+                <span className="text-muted">Images imported</span>
                 <span className="font-bold text-foreground">{result.images}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted">Annotazioni importate</span>
+                <span className="text-muted">Annotations imported</span>
                 <span className="font-bold text-foreground">{result.annotations}</span>
               </div>
             </div>
@@ -126,7 +126,7 @@ export default function MigrationDialog({ onComplete }: MigrationDialogProps) {
               onClick={onComplete}
               className="w-full px-4 py-2.5 bg-accent hover:bg-accent/80 text-white rounded-xl font-medium transition-colors"
             >
-              Inizia a usare Memorium
+              Start using Mnemorium
             </button>
           </>
         )}
@@ -135,14 +135,14 @@ export default function MigrationDialog({ onComplete }: MigrationDialogProps) {
           <>
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="w-8 h-8 text-red-400" />
-              <h2 className="text-lg font-bold text-foreground">Errore migrazione</h2>
+              <h2 className="text-lg font-bold text-foreground">Migration error</h2>
             </div>
             <p className="text-sm text-muted mb-6">{error}</p>
             <button
               onClick={onComplete}
               className="w-full px-4 py-2.5 bg-surface-elevated hover:bg-white/10 text-foreground rounded-xl font-medium transition-colors"
             >
-              Continua senza migrare
+              Continue without migrating
             </button>
           </>
         )}

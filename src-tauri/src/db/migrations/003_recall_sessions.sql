@@ -1,4 +1,4 @@
--- Memorium SQLite Schema - Migration 003
+-- Mnemorium SQLite Schema - Migration 003
 -- Sessioni di recall, sostituisce localStorage recall_sessions
 
 CREATE TABLE IF NOT EXISTS recall_sessions (

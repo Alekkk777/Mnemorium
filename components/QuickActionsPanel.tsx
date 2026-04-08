@@ -1,5 +1,5 @@
 // components/QuickActionsPanel.tsx - Pannello azioni rapide e tips
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Target, 
   Plus, 
@@ -14,6 +14,7 @@ import {
   Brain
 } from 'lucide-react';
 import { Palace } from '@/types';
+import { getSetting, setSetting } from '@/lib/tauriStorage';
 
 interface QuickActionsPanelProps {
   palace: Palace | undefined;
@@ -34,9 +35,13 @@ export default function QuickActionsPanel({
   onGenerateAI,
   showAnnotations
 }: QuickActionsPanelProps) {
-  const [showTips, setShowTips] = useState(() => {
-    return localStorage.getItem('memorium_show_tips') !== 'false';
-  });
+  const [showTips, setShowTips] = useState(true);
+
+  useEffect(() => {
+    getSetting<boolean>('show_tips').then(v => {
+      if (v === false) setShowTips(false);
+    }).catch(() => {});
+  }, []);
 
   const totalAnnotations = palace?.images.reduce((sum, img) => sum + img.annotations.length, 0) || 0;
   const canRecall = palace && totalAnnotations >= 3;
@@ -44,36 +49,36 @@ export default function QuickActionsPanel({
   const toggleTips = () => {
     const newValue = !showTips;
     setShowTips(newValue);
-    localStorage.setItem('memorium_show_tips', String(newValue));
+    setSetting('show_tips', newValue).catch(() => {});
   };
 
   const tips = [
     {
       icon: <Target className="w-4 h-4" />,
-      text: "Usa Recall Mode per testare la tua memoria",
+      text: "Use Recall Mode to test your memory",
       action: canRecall ? onStartRecall : undefined,
-      actionText: "Prova ora",
+      actionText: "Try now",
       condition: canRecall
     },
     {
       icon: <Sparkles className="w-4 h-4" />,
-      text: "L'AI può generare annotazioni dai tuoi appunti",
+      text: "AI can generate annotations from your notes",
       action: onGenerateAI,
-      actionText: "Genera con AI",
+      actionText: "Generate with AI",
       condition: palace !== undefined
     },
     {
       icon: <Plus className="w-4 h-4" />,
-      text: "Aggiungi almeno 5-10 annotazioni per palazzo",
+      text: "Add at least 5-10 annotations per palace",
       action: onAddAnnotation,
-      actionText: "Aggiungi",
+      actionText: "Add",
       condition: totalAnnotations < 5
     },
     {
       icon: <BarChart3 className="w-4 h-4" />,
-      text: "Monitora i tuoi progressi nelle statistiche",
+      text: "Monitor your progress in the statistics",
       action: onViewStats,
-      actionText: "Vedi Stats",
+      actionText: "View Stats",
       condition: palace !== undefined
     }
   ];
@@ -96,7 +101,7 @@ export default function QuickActionsPanel({
                   ? 'bg-blue-500 text-white'
                   : 'bg-white/20 text-white hover:bg-white/30'
               }`}
-              title={showAnnotations ? "Nascondi annotazioni" : "Mostra annotazioni"}
+              title={showAnnotations ? "Hide annotations" : "Show annotations"}
             >
               {showAnnotations ? (
                 <Eye className="w-4 h-4" />
@@ -104,7 +109,7 @@ export default function QuickActionsPanel({
                 <EyeOff className="w-4 h-4" />
               )}
               <span className="hidden sm:inline text-sm">
-                {showAnnotations ? 'Nascondi' : 'Mostra'}
+                {showAnnotations ? 'Hide' : 'Show'}
               </span>
             </button>
 
@@ -112,17 +117,17 @@ export default function QuickActionsPanel({
             <button
               onClick={onAddAnnotation}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
-              title="Aggiungi annotazione"
+              title="Add annotation"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm">Nuova</span>
+              <span className="hidden sm:inline text-sm">New</span>
             </button>
 
             {/* AI Generate */}
             <button
               onClick={onGenerateAI}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium"
-              title="Genera con AI"
+              title="Generate with AI"
             >
               <Sparkles className="w-4 h-4" />
               <span className="hidden sm:inline text-sm">AI</span>
@@ -137,7 +142,7 @@ export default function QuickActionsPanel({
                   ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-lg'
                   : 'bg-white/10 text-white/50 cursor-not-allowed'
               }`}
-              title={canRecall ? "Avvia Recall Mode" : "Aggiungi almeno 3 annotazioni"}
+              title={canRecall ? "Start Recall Mode" : "Add at least 3 annotations"}
             >
               <Target className="w-4 h-4" />
               <span className="hidden sm:inline text-sm">Recall</span>
@@ -147,7 +152,7 @@ export default function QuickActionsPanel({
             <button
               onClick={onViewStats}
               className="flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors font-medium"
-              title="Visualizza statistiche"
+              title="View statistics"
             >
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline text-sm">Stats</span>
@@ -163,13 +168,13 @@ export default function QuickActionsPanel({
             <div className="flex items-center gap-2">
               <Brain className="w-4 h-4 text-blue-400" />
               <span className="text-sm font-medium">{totalAnnotations}</span>
-              <span className="text-xs text-gray-300">annotazioni</span>
+              <span className="text-xs text-gray-300">annotations</span>
             </div>
             <div className="w-px h-4 bg-white/30" />
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-yellow-400" />
               <span className="text-sm font-medium">{palace.images.length}</span>
-              <span className="text-xs text-gray-300">stanze</span>
+              <span className="text-xs text-gray-300">rooms</span>
             </div>
           </div>
         </div>
@@ -182,7 +187,7 @@ export default function QuickActionsPanel({
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Info className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-gray-900">Suggerimenti</h3>
+                <h3 className="font-semibold text-gray-900">Tips</h3>
               </div>
               <button
                 onClick={toggleTips}
@@ -222,7 +227,7 @@ export default function QuickActionsPanel({
                 onClick={toggleTips}
                 className="text-xs text-gray-600 hover:text-gray-900 transition-colors"
               >
-                Nascondi suggerimenti
+                Hide tips
               </button>
             </div>
           </div>

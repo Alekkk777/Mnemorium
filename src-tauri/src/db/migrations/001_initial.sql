@@ -1,4 +1,4 @@
--- Memorium SQLite Schema - Migration 001
+-- Mnemorium SQLite Schema - Migration 001
 -- Sostituisce localStorage (palaces JSON) e IndexedDB (images blob)
 
 CREATE TABLE IF NOT EXISTS palaces (

@@ -1,10 +1,8 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
-
-use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct SaveImageInput {

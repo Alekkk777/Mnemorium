@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Memorium",
+  "productName": "Mnemorium",
   "version": "2.1.0",
-  "identifier": "com.memorium.app",
+  "identifier": "com.mnemorium",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:3001",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Memorium",
+        "title": "Mnemorium",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
@@ -25,7 +25,11 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost; connect-src 'self' http://127.0.0.1:* ipc: http://ipc.localhost; font-src 'self' data:; worker-src blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none';",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPCONFIG/**", "$HOME/Library/Application Support/**"]
+      }
     }
   },
   "bundle": {
@@ -38,15 +42,17 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "python-runtime/*"
-    ]
+    "resources": {
+      "../python-server/dist/mnemorium-ai-server": "python-server-bin",
+      "../python-server": "python-server",
+      "python-runtime/.gitkeep": "python-runtime/.gitkeep"
+    }
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1NTMxRTQ5MjMyQjQ5QTEKUldTaFNTc2pTUjVUMVFLUzkyNEsxRWNhVnZCWXBzcnVCNDN2a2d2VC9vc0FnVkxFUWxGUWVSaG8K",
       "endpoints": [
-        "https://github.com/Alekkk777/Memorium_open_v2/releases/latest/download/latest.json"
+        "https://github.com/Alekkk777/Mnemorium_open_v2/releases/latest/download/latest.json"
       ]
     },
     "shell": {

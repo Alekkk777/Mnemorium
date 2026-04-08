@@ -19,7 +19,7 @@ import { saveBase64Image } from './tauriImageStorage';
 import { is360Image } from './imageUtils';
 
 const MIGRATION_FLAG = 'migration_v2_done';
-const LS_KEY = 'memorium_palaces';
+const LS_KEY = 'mnemorium_palaces';
 
 export type MigrationProgressCallback = (step: string, progress: number) => void;
 
@@ -54,7 +54,7 @@ export async function runMigration(
   }
 
   // Try to decrypt if encrypted (skip encrypted data — user needs to re-enter password)
-  const isEncrypted = localStorage.getItem('memorium_encrypted') === 'true';
+  const isEncrypted = localStorage.getItem('mnemorium_encrypted') === 'true';
   if (isEncrypted) {
     onProgress('Dati cifrati rilevati — skippo migrazione automatica', 100);
     await setSetting(MIGRATION_FLAG, true);
@@ -155,7 +155,7 @@ export async function runMigration(
   await setSetting(MIGRATION_FLAG, true);
 
   // Optionally clear old localStorage data (keep as backup for 1 launch)
-  localStorage.setItem('memorium_palaces_backup', raw);
+  localStorage.setItem('mnemorium_palaces_backup', raw);
   localStorage.removeItem(LS_KEY);
 
   onProgress('Migrazione completata!', 100);
@@ -167,7 +167,7 @@ export async function runMigration(
 
 function readFromIndexedDB(key: string): Promise<Blob | null> {
   return new Promise((resolve) => {
-    const req = indexedDB.open('memorium-images', 1);
+    const req = indexedDB.open('mnemorium-images', 1);
     req.onerror = () => resolve(null);
     req.onsuccess = () => {
       const db = req.result;

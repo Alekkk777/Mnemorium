@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::path::Path;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 pub async fn init_db(app: &AppHandle) -> Result<SqlitePool> {
     let data_dir = app
@@ -11,7 +11,7 @@ pub async fn init_db(app: &AppHandle) -> Result<SqlitePool> {
 
     std::fs::create_dir_all(&data_dir)?;
 
-    let db_path = data_dir.join("memorium.db");
+    let db_path = data_dir.join("mnemorium.db");
     let db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
 
     let pool = SqlitePoolOptions::new()
@@ -32,7 +32,7 @@ pub async fn init_db(app: &AppHandle) -> Result<SqlitePool> {
     Ok(pool)
 }
 
-async fn run_migrations(pool: &SqlitePool, data_dir: &Path) -> Result<()> {
+async fn run_migrations(pool: &SqlitePool, _data_dir: &Path) -> Result<()> {
     // Track applied migrations
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS _migrations (

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { X, Sparkles, AlertCircle } from 'lucide-react';
 import { Palace } from '@/types';
 import { usePalaceStore } from '@/lib/store';
-import { generateAnnotations, isAIEnabled } from '@/lib/aiGenerator';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
 
 interface AutoGenerateProps {
   palace: Palace;
@@ -13,49 +13,31 @@ interface AutoGenerateProps {
 export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
   const [notesText, setNotesText] = useState('');
   const [targetCount, setTargetCount] = useState(10);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState('');
 
   const { addAnnotation } = usePalaceStore();
-  const { currentImageIndex } = usePalaceStore();
+  const { isGenerating, error, progress, setProgress, setError, generate, isAIEnabled } = useAIGeneration();
 
   const handleGenerate = async () => {
     if (!notesText.trim()) {
-      setError('Inserisci del testo da cui generare le annotazioni');
+      setError('Enter some text to generate annotations from');
       return;
     }
 
-    if (!isAIEnabled()) {
-      setError('API Key OpenAI non configurata. Vai in Impostazioni per aggiungerla.');
-      return;
-    }
+    const generated = await generate({ notesText, targetCount, imagesCount: palace.images.length });
+    if (!generated) return;
 
-    setIsGenerating(true);
-    setError(null);
-    setProgress('Analizzando il testo...');
+    setProgress(`Generated ${generated.length} annotations. Adding to palace...`);
 
-    try {
-      const generated = await generateAnnotations({
-        notesText,
-        targetCount,
-        imagesCount: palace.images.length,
-        language: 'italiano',
-      });
-
-      setProgress(`Generati ${generated.length} annotazioni. Aggiunta al palazzo...`);
-
-      for (const annotation of generated) {
+    await Promise.all(
+      generated.map((annotation) => {
         const imageId = palace.images[annotation.imageIndex]?.id;
-        if (!imageId) continue;
-
+        if (!imageId) return Promise.resolve();
         const position = {
           x: (Math.random() - 0.5) * 2,
           y: (Math.random() - 0.5) * 2,
           z: (Math.random() - 0.5) * 2,
         };
-
-        addAnnotation(palace._id || palace._id, imageId, {
+        return addAnnotation(palace._id, imageId, {
           text: annotation.description,
           note: annotation.note,
           position,
@@ -66,19 +48,11 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
           selected: false,
           isGenerated: true,
         });
-      }
+      })
+    );
 
-      setProgress('Completato!');
-      setTimeout(() => {
-        onClose();
-      }, 1000);
-    } catch (err) {
-      console.error('Errore generazione AI:', err);
-      setError(err instanceof Error ? err.message : 'Errore durante la generazione');
-      setProgress('');
-    } finally {
-      setIsGenerating(false);
-    }
+    setProgress('Completed!');
+    setTimeout(() => onClose(), 1000);
   };
 
   return (
@@ -89,7 +63,7 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
             <div className="p-2 bg-purple-100 rounded-lg">
               <Sparkles className="w-6 h-6 text-purple-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900">Genera con AI</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Generate with AI</h2>
           </div>
           <button
             onClick={onClose}
@@ -105,9 +79,9 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-3">
               <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-800">
-                <p className="font-medium mb-1">API Key non configurata</p>
+                <p className="font-medium mb-1">API Key not configured</p>
                 <p>
-                  Vai in Impostazioni e aggiungi la tua OpenAI API key per usare questa funzione.
+                  Go to Settings and add your OpenAI API key to use this feature.
                 </p>
               </div>
             </div>
@@ -115,12 +89,12 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Appunti da Memorizzare
+              Notes to Memorize
             </label>
             <textarea
               value={notesText}
               onChange={(e) => setNotesText(e.target.value)}
-              placeholder="Incolla qui i tuoi appunti...&#10;&#10;Es: Il glucosio (C6H12O6) è un monosaccaride..."
+              placeholder="Paste your notes here...&#10;&#10;E.g.: Glucose (C6H12O6) is a monosaccharide..."
               rows={8}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
               disabled={isGenerating}
@@ -129,7 +103,7 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Numero di Annotazioni
+              Number of Annotations
             </label>
             <input
               type="number"
@@ -141,7 +115,7 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
               disabled={isGenerating}
             />
             <p className="text-xs text-gray-500 mt-2">
-              Verranno distribuite tra le {palace.images.length} immagini del palazzo
+              They will be distributed across the {palace.images.length} images of the palace
             </p>
           </div>
 
@@ -168,7 +142,7 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
               className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               disabled={isGenerating}
             >
-              Annulla
+              Cancel
             </button>
             <button
               onClick={handleGenerate}
@@ -178,12 +152,12 @@ export default function AutoGenerate({ palace, onClose }: AutoGenerateProps) {
               {isGenerating ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Generazione...
+                  Generating...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Genera Annotazioni
+                  Generate Annotations
                 </>
               )}
             </button>

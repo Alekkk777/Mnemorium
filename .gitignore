@@ -79,3 +79,8 @@ coverage/
 *.msi
 *.deb
 *.rpm
+python-server/dist/*
+!python-server/dist/memorium-ai-server/
+!python-server/dist/memorium-ai-server/.gitkeep
+python-server/build/
+python-server/*.spec

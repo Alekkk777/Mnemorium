@@ -1,5 +1,5 @@
 // lib/imageDB.ts - IndexedDB per gestire immagini grandi
-const DB_NAME = 'memorium-images';
+const DB_NAME = 'mnemorium-images';
 const DB_VERSION = 1;
 const STORE_NAME = 'images';
 

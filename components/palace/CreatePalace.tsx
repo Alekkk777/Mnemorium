@@ -22,11 +22,11 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
 
     const validFiles = selectedFiles.filter(file => {
       if (!file.type.startsWith('image/')) {
-        setError('Solo file immagine sono supportati');
+        setError('Only image files are supported');
         return false;
       }
       if (file.size > 50 * 1024 * 1024) {
-        setError('Le immagini devono essere sotto i 50MB');
+        setError('Images must be under 50MB');
         return false;
       }
       return true;
@@ -44,12 +44,12 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
     e.preventDefault();
 
     if (!name.trim()) {
-      setError('Inserisci un nome per il palazzo');
+      setError('Enter a name for the palace');
       return;
     }
 
     if (files.length === 0) {
-      setError('Carica almeno una immagine');
+      setError('Upload at least one image');
       return;
     }
 
@@ -89,7 +89,7 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
       onClose();
     } catch (err) {
       console.error('Error creating palace:', err);
-      setError('Errore durante la creazione del palazzo');
+      setError('Error creating the palace');
     } finally {
       setIsUploading(false);
     }
@@ -99,7 +99,7 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
     <Modal
       isOpen={true}
       onClose={onClose}
-      title="Crea Palazzo da Zero"
+      title="Create Palace from Scratch"
       size="lg"
     >
       <form onSubmit={handleSubmit}>
@@ -113,13 +113,13 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Nome del Palazzo *
+                Palace Name *
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Es: La mia casa, Ufficio, Università..."
+                placeholder="E.g.: My house, Office, University..."
                 className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent"
                 disabled={isUploading}
               />
@@ -127,12 +127,12 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Descrizione (opzionale)
+                Description (optional)
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descrivi brevemente questo palazzo..."
+                placeholder="Briefly describe this palace..."
                 rows={3}
                 className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
                 disabled={isUploading}
@@ -142,25 +142,25 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
             <div className="p-4 bg-accent/10 border border-accent/20 rounded-lg flex gap-3">
               <AlertCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
               <div className="text-sm text-foreground">
-                <p className="font-medium mb-1">Come creare foto 360°</p>
+                <p className="font-medium mb-1">How to create 360° photos</p>
                 <p className="text-muted">
-                  Usa la app Google Street View per creare immagini panoramiche dei tuoi ambienti.
+                  Use the Google Street View app to create panoramic images of your environments.
                 </p>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Immagini 360° *
+                360° Images *
               </label>
 
               <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-accent transition-colors bg-surface">
                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                   <Upload className="w-10 h-10 text-muted mb-2" />
                   <p className="text-sm text-muted">
-                    <span className="font-semibold text-foreground">Clicca per caricare</span> o trascina qui
+                    <span className="font-semibold text-foreground">Click to upload</span> or drag here
                   </p>
-                  <p className="text-xs text-muted mt-1">PNG, JPG fino a 50MB</p>
+                  <p className="text-xs text-muted mt-1">PNG, JPG up to 50MB</p>
                 </div>
                 <input
                   type="file"
@@ -206,14 +206,14 @@ export default function CreatePalace({ onClose }: CreatePalaceProps) {
             className="px-6 py-2 text-muted hover:text-foreground hover:bg-white/10 rounded-lg transition-colors"
             disabled={isUploading}
           >
-            Annulla
+            Cancel
           </button>
           <button
             type="submit"
             disabled={isUploading || !name.trim() || files.length === 0}
             className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUploading ? 'Creazione...' : 'Crea Palazzo'}
+            {isUploading ? 'Creating...' : 'Create Palace'}
           </button>
         </ModalFooter>
       </form>

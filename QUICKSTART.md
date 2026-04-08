@@ -1,11 +1,11 @@
-# ⚡ Memorium - Quick Start (5 minuti)
+# ⚡ Mnemorium - Quick Start (5 minuti)
 
 ## 🚀 Setup Veloce
 
 ```bash
 # 1. Clona il progetto
-git clone https://github.com/yourusername/memorium-v2.git
-cd memorium-v2
+git clone https://github.com/yourusername/mnemorium-v2.git
+cd mnemorium-v2
 
 # 2. Installa le dipendenze
 npm install
@@ -80,7 +80,7 @@ Ora il pulsante **"Genera con AI"** funziona! ✨
 
 ### Opzione 3: Foto Normali
 
-Puoi usare anche foto normali! Memorium funziona con entrambe.
+Puoi usare anche foto normali! Mnemorium funziona con entrambe.
 
 ---
 
@@ -148,6 +148,6 @@ Viene creato automaticamente al primo avvio!
 
 Sei pronto per costruire il tuo palazzo della memoria! 🏛️
 
-**Domande?** Apri un [issue](https://github.com/yourusername/memorium-v2/issues) su GitHub
+**Domande?** Apri un [issue](https://github.com/yourusername/mnemorium-v2/issues) su GitHub
 
 **Happy learning!** 🧠✨

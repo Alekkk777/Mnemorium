@@ -11,7 +11,7 @@
 
 **Please do NOT open a public GitHub Issue for security vulnerabilities.**
 
-Report security issues privately via email: `security@memorium.app`
+Report security issues privately via email: `security@mnemorium.app`
 
 Include:
 - Description of the vulnerability
@@ -23,7 +23,7 @@ We will respond within 48 hours and aim to release a fix within 7 days for criti
 
 ## Data Privacy
 
-Memorium is designed to be fully local:
+Mnemorium is designed to be fully local:
 - All data is stored on your machine only
 - No telemetry, no analytics, no cloud sync
 - API keys (if provided) are stored locally in the SQLite settings database

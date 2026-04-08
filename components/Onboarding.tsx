@@ -10,53 +10,53 @@ interface OnboardingProps {
 
 const steps = [
   {
-    title: "Benvenuto in Memorium!",
-    description: "Crea palazzi della memoria 3D per memorizzare qualsiasi cosa usando la tecnica dei loci.",
+    title: "Welcome to Mnemorium!",
+    description: "Create 3D memory palaces to memorize anything using the method of loci.",
     image: "🏛️",
     tips: [
-      "I tuoi dati rimangono nel browser",
-      "Nessun account necessario",
-      "Funziona offline"
+      "Your data stays in the browser",
+      "No account required",
+      "Works offline"
     ]
   },
   {
-    title: "Crea il tuo primo palazzo",
-    description: "Carica foto 360° dei tuoi ambienti (casa, ufficio, luoghi visitati) oppure usa immagini normali.",
+    title: "Create your first palace",
+    description: "Upload 360° photos of your environments (home, office, visited places) or use normal images.",
     image: "📸",
     tips: [
-      "Usa app come Google Street View per creare foto 360°",
-      "Anche foto normali funzionano",
-      "Puoi aggiungere più stanze allo stesso palazzo"
+      "Use apps like Google Street View to create 360° photos",
+      "Regular photos work too",
+      "You can add multiple rooms to the same palace"
     ]
   },
   {
-    title: "Aggiungi annotazioni",
-    description: "Clicca direttamente nell'immagine per posizionare le informazioni che vuoi memorizzare.",
+    title: "Add annotations",
+    description: "Click directly in the image to place the information you want to memorize.",
     image: "📝",
     tips: [
-      "Click nell'immagine = posiziona annotazione",
-      "Aggiungi testo, note e immagini",
-      "Usa la AI per generare automaticamente"
+      "Click in the image = place annotation",
+      "Add text, notes and images",
+      "Use AI to generate them automatically"
     ]
   },
   {
-    title: "Esplora e memorizza",
-    description: "Naviga nel tuo palazzo in 3D. Le informazioni nel contesto spaziale sono più facili da ricordare.",
+    title: "Explore and memorize",
+    description: "Navigate your palace in 3D. Information in a spatial context is easier to remember.",
     image: "🧠",
     tips: [
-      "Trascina per ruotare la visuale",
-      "Scroll per zoom",
-      "Click sulle annotazioni per espanderle"
+      "Drag to rotate the view",
+      "Scroll to zoom",
+      "Click on annotations to expand them"
     ]
   },
   {
-    title: "Genera con AI (opzionale)",
-    description: "Incolla i tuoi appunti e lascia che l'AI crei immagini mentali vivide per te.",
+    title: "Generate with AI (optional)",
+    description: "Paste your notes and let AI create vivid mental images for you.",
     image: "✨",
     tips: [
-      "Aggiungi la tua API key OpenAI nelle impostazioni",
-      "L'AI trasforma testo in scene memorabili",
-      "Completamente opzionale"
+      "Add your OpenAI API key in settings",
+      "AI transforms text into memorable scenes",
+      "Completely optional"
     ]
   }
 ];
@@ -83,7 +83,7 @@ export default function Onboarding({ onComplete, onSkip, isTutorialMode = false 
   const step = steps[safeCurrentStep];
   
   if (!step) {
-    console.error('Step non trovato:', safeCurrentStep);
+    console.error('Step not found:', safeCurrentStep);
     return null;
   }
 
@@ -108,7 +108,7 @@ export default function Onboarding({ onComplete, onSkip, isTutorialMode = false 
               <h2 className="text-2xl font-bold text-gray-900">
                 {isTutorialMode ? 'Tutorial - ' : ''}{step.title}
               </h2>
-              <p className="text-sm text-gray-500">Passo {safeCurrentStep + 1} di {steps.length}</p>
+              <p className="text-sm text-gray-500">Step {safeCurrentStep + 1} of {steps.length}</p>
             </div>
           </div>
           
@@ -128,7 +128,7 @@ export default function Onboarding({ onComplete, onSkip, isTutorialMode = false 
 
           <div className="bg-blue-50 rounded-lg p-6 space-y-3">
             <p className="font-semibold text-blue-900 text-sm uppercase tracking-wide">
-              Suggerimenti
+              Tips
             </p>
             {step.tips && step.tips.map((tip, index) => (
               <div key={index} className="flex items-start gap-3">
@@ -147,7 +147,7 @@ export default function Onboarding({ onComplete, onSkip, isTutorialMode = false 
             className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
-            Indietro
+            Back
           </button>
 
           <div className="flex gap-2">
@@ -169,7 +169,7 @@ export default function Onboarding({ onComplete, onSkip, isTutorialMode = false 
             onClick={handleNext}
             className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            {safeCurrentStep === steps.length - 1 ? (isTutorialMode ? 'Chiudi' : 'Inizia') : 'Avanti'}
+            {safeCurrentStep === steps.length - 1 ? (isTutorialMode ? 'Close' : 'Start') : 'Next'}
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>

@@ -51,7 +51,7 @@ export async function exportBackup(palaces: Palace[]): Promise<void> {
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
-    const fileName = `memorium-backup-${Date.now()}.memorium`;
+    const fileName = `mnemorium-backup-${Date.now()}.mnemorium`;
 
     if (isTauri()) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -62,7 +62,7 @@ export async function exportBackup(palaces: Palace[]): Promise<void> {
 
       const filePath = await save({
         defaultPath: fileName,
-        filters: [{ name: 'Memorium Backup', extensions: ['memorium', 'json'] }],
+        filters: [{ name: 'Mnemorium Backup', extensions: ['mnemorium', 'json'] }],
       });
 
       if (filePath) {
@@ -97,7 +97,7 @@ export async function importBackup(): Promise<void> {
       const { readTextFile } = await import('@tauri-apps/plugin-fs');
 
       const filePath = await open({
-        filters: [{ name: 'Memorium Backup', extensions: ['memorium', 'json'] }],
+        filters: [{ name: 'Mnemorium Backup', extensions: ['mnemorium', 'json'] }],
         multiple: false,
       });
 
@@ -108,7 +108,7 @@ export async function importBackup(): Promise<void> {
       dataStr = await new Promise((resolve, reject) => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.memorium,.json';
+        input.accept = '.mnemorium,.json';
         input.onchange = (e) => {
           const file = (e.target as HTMLInputElement).files?.[0];
           if (!file) { reject(new Error('No file selected')); return; }

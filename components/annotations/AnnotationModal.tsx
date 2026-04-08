@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Upload, Pencil, Eraser, Save, Palette } from 'lucide-react';
 import { Modal, ModalBody, ModalFooter } from '../ui/Modal';
 import { usePalaceStore } from '@/lib/store';
-import { saveImageFile } from '@/lib/tauriImageStorage';
+import { saveImageFile, getImageUrl } from '@/lib/tauriImageStorage';
 import { Annotation } from '@/types';
 
 interface AnnotationModalProps {
@@ -44,9 +44,15 @@ export default function AnnotationModal({
     if (editingAnnotation) {
       setText(editingAnnotation.text);
       setNote(editingAnnotation.note || '');
-      if (editingAnnotation.imageUrl) {
-        setImagePreview(editingAnnotation.imageUrl);
+      if (editingAnnotation.imageFilePath) {
         setImageSource('upload');
+        // Load the actual URL from local filesystem via Tauri
+        getImageUrl(editingAnnotation.imageFilePath)
+          .then(setImagePreview)
+          .catch(() => setImagePreview(null));
+      } else {
+        setImageSource('none');
+        setImagePreview(null);
       }
     } else {
       setText('');
@@ -75,11 +81,11 @@ export default function AnnotationModal({
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setError('Solo file immagine sono supportati');
+      setError('Only image files are supported');
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError("L'immagine deve essere sotto i 5MB");
+      setError('The image must be under 5MB');
       return;
     }
 
@@ -132,7 +138,7 @@ export default function AnnotationModal({
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!text.trim()) {
-      setError("Inserisci il testo dell'annotazione");
+      setError('Enter the annotation text');
       return;
     }
 
@@ -141,18 +147,21 @@ export default function AnnotationModal({
 
     try {
       let imageFilePath: string | undefined;
-      let imageUrl: string | undefined;
 
       if (imageSource === 'draw' && canvasRef.current) {
-        // Drawing saved as dataUrl (small enough inline)
-        imageUrl = canvasRef.current.toDataURL('image/png');
+        // Convert canvas drawing to File and save to disk
+        const dataUrl = canvasRef.current.toDataURL('image/png');
+        const blob = await (await fetch(dataUrl)).blob();
+        const drawFile = new File([blob], `drawing_${Date.now()}.png`, { type: 'image/png' });
+        if ((window as any).__TAURI__) {
+          const { relativePath } = await saveImageFile(drawFile, 'annotation_images');
+          imageFilePath = relativePath;
+        }
+        // In dev mode, drawing is not saved (no Tauri filesystem)
       } else if (imageSource === 'upload' && imageFile) {
         if ((window as any).__TAURI__) {
           const { relativePath } = await saveImageFile(imageFile, 'annotation_images');
           imageFilePath = relativePath;
-        } else {
-          // Dev fallback: use object URL / preview
-          imageUrl = imagePreview ?? undefined;
         }
       }
 
@@ -160,7 +169,6 @@ export default function AnnotationModal({
         await updateAnnotation(palaceId, imageId, editingAnnotation.id, {
           text: text.trim(),
           note: note.trim(),
-          imageUrl,
           imageFilePath,
           updatedAt: new Date().toISOString(),
         });
@@ -174,7 +182,6 @@ export default function AnnotationModal({
           height: 1,
           isVisible: true,
           selected: false,
-          imageUrl,
           imageFilePath,
           isGenerated: false,
         });
@@ -183,7 +190,7 @@ export default function AnnotationModal({
       onClose();
     } catch (err) {
       console.error('Error saving annotation:', err);
-      setError('Errore durante il salvataggio');
+      setError('Error while saving');
     } finally {
       setIsSubmitting(false);
     }
@@ -193,7 +200,7 @@ export default function AnnotationModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={editingAnnotation ? 'Modifica Annotazione' : 'Nuova Annotazione'}
+      title={editingAnnotation ? 'Edit Annotation' : 'New Annotation'}
       size="lg"
     >
       <div>
@@ -201,13 +208,13 @@ export default function AnnotationModal({
           <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Testo/Concetto *
+                Text/Concept *
               </label>
               <input
                 type="text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Es: Formula chimica del glucosio"
+                placeholder="E.g.: Chemical formula of glucose"
                 className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent"
                 disabled={isSubmitting}
               />
@@ -215,12 +222,12 @@ export default function AnnotationModal({
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">
-                Nota/Spiegazione
+                Note/Explanation
               </label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Descrivi l'immagine mentale..."
+                placeholder="Describe the mental image..."
                 rows={4}
                 className="w-full px-4 py-2 bg-surface border border-white/10 rounded-lg text-foreground placeholder-muted focus:ring-2 focus:ring-accent focus:border-transparent resize-none"
                 disabled={isSubmitting}
@@ -229,7 +236,7 @@ export default function AnnotationModal({
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-3">
-                Immagine Associata (opzionale)
+                Associated Image (optional)
               </label>
 
               <div className="grid grid-cols-3 gap-2 mb-4">
@@ -244,9 +251,9 @@ export default function AnnotationModal({
                         : 'bg-surface text-muted hover:text-foreground hover:bg-white/10'
                     }`}
                   >
-                    {src === 'none' && 'Nessuna'}
-                    {src === 'upload' && <><Upload className="w-4 h-4" /> Carica</>}
-                    {src === 'draw' && <><Pencil className="w-4 h-4" /> Disegna</>}
+                    {src === 'none' && 'None'}
+                    {src === 'upload' && <><Upload className="w-4 h-4" /> Upload</>}
+                    {src === 'draw' && <><Pencil className="w-4 h-4" /> Draw</>}
                   </button>
                 ))}
               </div>
@@ -272,8 +279,8 @@ export default function AnnotationModal({
                     <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-accent transition-colors bg-surface">
                       <div className="flex flex-col items-center pt-5 pb-6">
                         <Upload className="w-12 h-12 text-muted mb-3" />
-                        <p className="text-sm text-muted font-medium mb-1">Carica un&apos;immagine</p>
-                        <p className="text-xs text-muted">PNG, JPG fino a 5MB</p>
+                        <p className="text-sm text-muted font-medium mb-1">Upload an image</p>
+                        <p className="text-xs text-muted">PNG, JPG up to 5MB</p>
                       </div>
                       <input
                         type="file"
@@ -298,7 +305,7 @@ export default function AnnotationModal({
                           drawMode === 'draw' ? 'bg-accent text-white' : 'bg-white/10 text-muted hover:text-foreground'
                         }`}
                       >
-                        <Pencil className="w-4 h-4" /> Disegna
+                        <Pencil className="w-4 h-4" /> Draw
                       </button>
                       <button
                         type="button"
@@ -307,7 +314,7 @@ export default function AnnotationModal({
                           drawMode === 'erase' ? 'bg-accent text-white' : 'bg-white/10 text-muted hover:text-foreground'
                         }`}
                       >
-                        <Eraser className="w-4 h-4" /> Gomma
+                        <Eraser className="w-4 h-4" /> Eraser
                       </button>
                     </div>
 
@@ -335,7 +342,7 @@ export default function AnnotationModal({
                       onClick={clearCanvas}
                       className="px-3 py-2 bg-white/10 text-muted hover:text-foreground rounded text-sm font-medium"
                     >
-                      Pulisci
+                      Clear
                     </button>
                   </div>
 
@@ -371,7 +378,7 @@ export default function AnnotationModal({
             className="px-6 py-2 text-muted hover:text-foreground hover:bg-white/10 rounded-lg transition-colors"
             disabled={isSubmitting}
           >
-            Annulla
+            Cancel
           </button>
           <button
             type="button"
@@ -380,7 +387,7 @@ export default function AnnotationModal({
             className="flex items-center gap-2 px-6 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             <Save className="w-4 h-4" />
-            {isSubmitting ? 'Salvataggio...' : editingAnnotation ? 'Salva Modifiche' : 'Crea Annotazione'}
+            {isSubmitting ? 'Saving...' : editingAnnotation ? 'Save Changes' : 'Create Annotation'}
           </button>
         </ModalFooter>
       </div>

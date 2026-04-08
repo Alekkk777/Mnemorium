@@ -5,19 +5,22 @@ import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { Palace, Annotation } from '@/types';
 import { usePalaceStore, useUIStore } from '@/lib/store';
-import { getImageUrl } from '@/lib/tauriImageStorage';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, MousePointer, Edit2, Plus } from 'lucide-react';
+import { getImageUrl, saveImageFile, is360Image } from '@/lib/tauriImageStorage';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, MousePointer, Plus, ImagePlus, Trash2, Pencil, QrCode } from 'lucide-react';
 import AnnotationModal from '../annotations/AnnotationModal';
 import AnnotationStickyNote from '../annotations/AnnotationStickyNote';
 import ImprovedAIFlow from '../annotations/ImprovedAIFlow';
+import QRPhotoUpload from './QRPhotoUpload';
 
 interface PalaceViewerProps {
   palace: Palace;
 }
 
 export default function PalaceViewer({ palace }: PalaceViewerProps) {
-  const { currentImageIndex, setCurrentImage } = usePalaceStore();
+  const { currentImageIndex, setCurrentImage, addImage, removeImage } = usePalaceStore();
   const { setAnnotationFormOpen } = useUIStore();
+  const addImagesInputRef = useRef<HTMLInputElement>(null);
+  const [isAddingImages, setIsAddingImages] = useState(false);
   
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [showAnnotations, setShowAnnotations] = useState(true);
@@ -27,6 +30,7 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAnnotation, setEditingAnnotation] = useState<Annotation | null>(null);
   const [showAIFlow, setShowAIFlow] = useState(false);
+  const [showQRUpload, setShowQRUpload] = useState(false);
   const [stickyNote, setStickyNote] = useState<{
     position3D: { x: number; y: number; z: number };
     screenX: number;
@@ -159,12 +163,58 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
     setPendingPosition(null);
   };
 
+  const handleAddImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(
+      f => f.type.startsWith('image/') && f.size <= 50 * 1024 * 1024
+    );
+    if (!files.length) return;
+    setIsAddingImages(true);
+    try {
+      for (const file of files) {
+        const dimensions = await new Promise<{ width: number; height: number }>((resolve) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = () => { resolve({ width: img.width, height: img.height }); URL.revokeObjectURL(url); };
+          img.onerror = () => { resolve({ width: 1024, height: 512 }); URL.revokeObjectURL(url); };
+          img.src = url;
+        });
+        const { relativePath } = await saveImageFile(file, 'palace_images');
+        await addImage(palace._id, {
+          name: file.name,
+          fileName: file.name,
+          localFilePath: relativePath,
+          width: dimensions.width,
+          height: dimensions.height,
+          is360: is360Image(dimensions.width, dimensions.height),
+        });
+      }
+      // Navigate to the last added image
+      setCurrentImage(palace.images.length + files.length - 1);
+    } catch (err) {
+      console.error('[PalaceViewer] Failed to add images:', err);
+    } finally {
+      setIsAddingImages(false);
+      if (addImagesInputRef.current) addImagesInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveCurrentImage = async () => {
+    if (!currentImage) return;
+    const hasAnnotations = currentImage.annotations.length > 0;
+    const msg = hasAnnotations
+      ? `Delete "${currentImage.name}"? It has ${currentImage.annotations.length} annotations that will be lost.`
+      : `Delete "${currentImage.name}"?`;
+    if (!confirm(msg)) return;
+    await removeImage(palace._id, currentImage.id);
+    setCurrentImage(Math.max(0, currentImageIndex - 1));
+  };
+
   if (!currentImage || !imageUrl) {
     return (
       <div className="h-full flex items-center justify-center bg-gray-900">
         <div className="text-white text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Caricamento immagine...</p>
+          <p>Loading image...</p>
         </div>
       </div>
     );
@@ -172,6 +222,16 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
 
   return (
     <div className="relative h-full">
+      {/* Hidden file input for adding images */}
+      <input
+        ref={addImagesInputRef}
+        type="file"
+        multiple
+        accept="image/*"
+        className="hidden"
+        onChange={handleAddImages}
+      />
+
       <div
         ref={canvasWrapperRef}
         className="absolute inset-0"
@@ -202,16 +262,16 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
                   <MousePointer className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900 text-lg">Posiziona l'annotazione</h3>
-                  <p className="text-sm text-gray-600">Clicca nell'immagine dove vuoi aggiungere la nota</p>
+                  <h3 className="font-bold text-gray-900 text-lg">Place the annotation</h3>
+                  <p className="text-sm text-gray-600">Click in the image where you want to add the note</p>
                 </div>
               </div>
 
               {/* 🆕 Visual Guide */}
               <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <p className="text-xs font-medium text-blue-900 mb-2">💡 Suggerimento</p>
+                <p className="text-xs font-medium text-blue-900 mb-2">💡 Tip</p>
                 <p className="text-xs text-blue-700">
-                  Scegli un punto visivamente distintivo per facilitare il ricordo!
+                  Choose a visually distinctive point to help recall!
                 </p>
               </div>
 
@@ -219,7 +279,7 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
                 onClick={() => setIsPlacingAnnotation(false)}
                 className="w-full px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
               >
-                Annulla
+                Cancel
               </button>
             </div>
           </div>
@@ -243,10 +303,10 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
             >
               {showAnnotations ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               <span className="hidden sm:inline text-sm">
-                {showAnnotations ? 'Nascondi' : 'Mostra'}
+                {showAnnotations ? 'Hide' : 'Show'}
               </span>
               {hoveredControl === 'toggle' && (
-                <Tooltip text={showAnnotations ? "Nascondi annotazioni" : "Mostra annotazioni"} />
+                <Tooltip text={showAnnotations ? "Hide annotations" : "Show annotations"} />
               )}
             </button>
 
@@ -258,9 +318,49 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
               className="relative flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors font-medium"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm">Nuova</span>
-              {hoveredControl === 'add' && <Tooltip text="Nuova annotazione (oppure premi N)" />}
+              <span className="hidden sm:inline text-sm">New</span>
+              {hoveredControl === 'add' && <Tooltip text="New annotation (or press N)" />}
             </button>
+
+            {/* Add Images */}
+            <button
+              onClick={() => addImagesInputRef.current?.click()}
+              disabled={isAddingImages}
+              onMouseEnter={() => setHoveredControl('addimg')}
+              onMouseLeave={() => setHoveredControl(null)}
+              className="relative flex items-center gap-2 px-4 py-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors font-medium disabled:opacity-50"
+            >
+              <ImagePlus className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm">
+                {isAddingImages ? 'Adding...' : 'Rooms'}
+              </span>
+              {hoveredControl === 'addimg' && <Tooltip text="Add images to the palace" />}
+            </button>
+
+            {/* QR Photo Upload */}
+            <button
+              onClick={() => setShowQRUpload(true)}
+              onMouseEnter={() => setHoveredControl('qr')}
+              onMouseLeave={() => setHoveredControl(null)}
+              className="relative flex items-center gap-2 px-3 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
+            >
+              <QrCode className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm">QR</span>
+              {hoveredControl === 'qr' && <Tooltip text="Upload photos from phone" />}
+            </button>
+
+            {/* Remove current image */}
+            {palace.images.length > 1 && (
+              <button
+                onClick={handleRemoveCurrentImage}
+                onMouseEnter={() => setHoveredControl('removeimg')}
+                onMouseLeave={() => setHoveredControl(null)}
+                className="relative flex items-center gap-2 px-3 py-2 bg-white/10 text-white rounded-xl hover:bg-danger/30 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {hoveredControl === 'removeimg' && <Tooltip text="Remove current room" />}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -299,11 +399,11 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${currentImage.is360 ? 'bg-green-400' : 'bg-blue-400'}`} />
                 <span className="text-sm font-medium">
-                  {currentImage.is360 ? '360° Panorama' : 'Immagine Standard'}
+                  {currentImage.is360 ? '360° Panorama' : 'Standard Image'}
                 </span>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-300">
-                <span>{totalAnnotations} note</span>
+                <span>{totalAnnotations} notes</span>
                 <span>•</span>
                 <span>{currentImage.width}x{currentImage.height}</span>
               </div>
@@ -341,6 +441,14 @@ export default function PalaceViewer({ palace }: PalaceViewerProps) {
         <ImprovedAIFlow
           palace={palace}
           onClose={() => setShowAIFlow(false)}
+        />
+      )}
+
+      {/* QR Photo Upload */}
+      {showQRUpload && (
+        <QRPhotoUpload
+          palaceId={palace._id}
+          onClose={() => setShowQRUpload(false)}
         />
       )}
     </div>
@@ -553,8 +661,8 @@ function AnnotationMarker({ annotation, is360, isSelected, onClick, onEdit }: An
                   }}
                   className="flex-1 flex items-center justify-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-2 bg-blue-50 rounded hover:bg-blue-100"
                 >
-                  <Edit2 className="w-3 h-3" />
-                  Modifica
+                  <Pencil className="w-3 h-3" />
+                  Edit
                 </button>
                 <button
                   onClick={(e) => {
@@ -563,7 +671,7 @@ function AnnotationMarker({ annotation, is360, isSelected, onClick, onEdit }: An
                   }}
                   className="text-xs text-gray-600 hover:text-gray-700 font-medium px-3 py-2 hover:bg-gray-100 rounded"
                 >
-                  Chiudi
+                  Close
                 </button>
               </div>
             )}

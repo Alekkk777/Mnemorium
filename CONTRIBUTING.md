@@ -1,6 +1,6 @@
-# Contributing to Memorium
+# Contributing to Mnemorium
 
-First off, thank you for considering contributing to Memorium! 🎉
+First off, thank you for considering contributing to Mnemorium! 🎉
 
 ## How Can I Contribute?
 
@@ -71,7 +71,7 @@ Use clear and meaningful commit messages:
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/memorium-v2.git
+git clone https://github.com/YOUR_USERNAME/mnemorium-v2.git
 
 # Install dependencies
 npm install

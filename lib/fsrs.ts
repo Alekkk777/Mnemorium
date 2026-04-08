@@ -1,6 +1,6 @@
 /**
  * fsrs.ts
- * Wrapper around ts-fsrs for Memorium.
+ * Wrapper around ts-fsrs for Mnemorium.
  * Provides helper functions for scheduling annotations.
  */
 
@@ -9,9 +9,9 @@ import { Annotation, FSRSCard, FSRSRating } from '@/types';
 
 const f = new FSRS({});
 
-// ─── Convert between Memorium FSRSCard and ts-fsrs Card ───────────────────────
+// ─── Convert between Mnemorium FSRSCard and ts-fsrs Card ───────────────────────
 
-function memoriumCardToFSRS(fsrsCard?: FSRSCard): Card {
+function mnemoriumCardToFSRS(fsrsCard?: FSRSCard): Card {
   if (!fsrsCard) return createEmptyCard();
 
   return {
@@ -27,7 +27,7 @@ function memoriumCardToFSRS(fsrsCard?: FSRSCard): Card {
   };
 }
 
-function fsrsCardToMemoriumCard(card: Card): FSRSCard {
+function fsrsCardToMnemoriumCard(card: Card): FSRSCard {
   return {
     stability: card.stability,
     difficulty: card.difficulty,
@@ -39,7 +39,7 @@ function fsrsCardToMemoriumCard(card: Card): FSRSCard {
   };
 }
 
-// ─── Map Memorium ratings to ts-fsrs Rating ───────────────────────────────────
+// ─── Map Mnemorium ratings to ts-fsrs Rating ───────────────────────────────────
 
 function toFSRSRating(rating: FSRSRating): Rating {
   switch (rating) {
@@ -69,14 +69,14 @@ export function scheduleAnnotation(
   rating: FSRSRating,
   reviewedAt: Date = new Date()
 ): ScheduleResult {
-  const card = memoriumCardToFSRS(annotation.fsrsCard);
+  const card = mnemoriumCardToFSRS(annotation.fsrsCard);
   const fsrsRating = toFSRSRating(rating);
 
-  const scheduling: RecordLog = f.repeat(card, reviewedAt);
+  const scheduling = f.repeat(card, reviewedAt) as Record<number, { card: Card }>;
   const updated = scheduling[fsrsRating].card;
 
   return {
-    updatedCard: fsrsCardToMemoriumCard(updated),
+    updatedCard: fsrsCardToMnemoriumCard(updated),
     nextDue: updated.due,
     interval: updated.scheduled_days,
   };

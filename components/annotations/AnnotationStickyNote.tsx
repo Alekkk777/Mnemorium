@@ -102,8 +102,8 @@ export default function AnnotationStickyNote({
       >
         <div className="bg-surface border border-accent/40 rounded-xl overflow-hidden">
           <div className="px-3 py-1.5 bg-accent/20 border-b border-accent/20 flex items-center justify-between">
-            <span className="text-xs text-accent font-medium">Nuova annotazione</span>
-            <span className="text-xs text-muted opacity-60">Invio per salvare</span>
+            <span className="text-xs text-accent font-medium">New annotation</span>
+            <span className="text-xs text-muted opacity-60">Enter to save</span>
           </div>
           <div className="p-2">
             <input
@@ -112,7 +112,7 @@ export default function AnnotationStickyNote({
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Scrivi il concetto..."
+              placeholder="Write the concept..."
               className="w-full bg-transparent text-sm text-foreground placeholder-muted outline-none py-1"
               disabled={isSaving}
               maxLength={200}
@@ -130,7 +130,7 @@ export default function AnnotationStickyNote({
               disabled={!text.trim() || isSaving}
               className="px-3 py-1 text-xs bg-accent text-white rounded hover:bg-accent-hover transition-colors disabled:opacity-40"
             >
-              {isSaving ? '...' : 'Salva'}
+              {isSaving ? '...' : 'Save'}
             </button>
           </div>
         </div>

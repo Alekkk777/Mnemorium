@@ -1,4 +1,4 @@
--- Memorium SQLite Schema - Migration 004
+-- Mnemorium SQLite Schema - Migration 004
 -- Settings key-value store, sostituisce localStorage settings
 
 CREATE TABLE IF NOT EXISTS settings (

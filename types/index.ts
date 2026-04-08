@@ -1,4 +1,4 @@
-// types/index.ts — Memorium v2 + FSRS + Tauri
+// types/index.ts — Mnemorium v2 + FSRS + Tauri
 
 // ─── FSRS Card ────────────────────────────────────────────────────────────────
 
@@ -43,12 +43,6 @@ export interface Annotation {
   isGenerated?: boolean;
   /** FSRS scheduling data */
   fsrsCard?: FSRSCard;
-  /** Legacy recall data (pre-FSRS, kept for migration) */
-  recallData?: {
-    attempts: number;
-    lastAttempt: string | null;
-    remembered: boolean | null;
-  };
 }
 
 export interface PalaceImage {

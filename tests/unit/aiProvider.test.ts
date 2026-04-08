@@ -42,7 +42,7 @@ describe('autoDetectProvider', () => {
   });
 
   it('returns "gemini" when gemini key is set', async () => {
-    localStorage.setItem('memorium_gemini_key', btoa('AIzaTestKey123456'));
+    localStorage.setItem('mnemorium_gemini_key', btoa('AIzaTestKey123456'));
     const type = await autoDetectProvider();
     // Local server wins if available, otherwise gemini
     expect(['gemini', 'local']).toContain(type);

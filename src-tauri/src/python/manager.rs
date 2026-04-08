@@ -19,34 +19,55 @@ impl PythonServer {
         // Find a free port
         let port = find_free_port().ok_or("No free port available")?;
 
-        // Locate the python server
-        let resource_path = app
+        let resource_dir = app
             .path()
             .resource_dir()
-            .map_err(|e| e.to_string())?
-            .join("python-server");
+            .map_err(|e| e.to_string())?;
 
-        let python_bin = find_python_binary(&resource_path);
+        // 1. Prefer bundled PyInstaller executable (release builds)
+        let exe_name = if cfg!(windows) { "mnemorium-ai-server.exe" } else { "mnemorium-ai-server" };
+        let bundled_exe = resource_dir
+            .join("python-server-bin")
+            .join(exe_name);
 
-        let server_script = resource_path.join("main.py");
-        if !server_script.exists() {
-            return Err(format!("Python server not found at {:?}", server_script));
-        }
+        let child = if bundled_exe.exists() {
+            println!("[Python] Using bundled executable: {:?}", bundled_exe);
+            Command::new(&bundled_exe)
+                .arg("--port")
+                .arg(port.to_string())
+                .spawn()
+                .map_err(|e| format!("Failed to start bundled AI server: {}", e))?
+        } else {
+            // 2. Dev fallback: system Python + source files
+            let source_path = resource_dir.join("python-server");
+            let python_bin = find_python_binary(&source_path);
+            let server_script = source_path.join("main.py");
 
-        let child = Command::new(&python_bin)
-            .arg(&server_script)
-            .arg("--port")
-            .arg(port.to_string())
-            .spawn()
-            .map_err(|e| format!("Failed to start Python server: {}", e))?;
+            if !server_script.exists() {
+                return Err(format!(
+                    "AI server not found — expected bundled exe at {:?} or source at {:?}",
+                    bundled_exe, server_script
+                ));
+            }
+
+            println!("[Python] Using system Python: {:?}", python_bin);
+            Command::new(&python_bin)
+                .arg(&server_script)
+                .arg("--port")
+                .arg(port.to_string())
+                .spawn()
+                .map_err(|e| format!("Failed to start Python AI server: {}", e))?
+        };
 
         *self.process.lock().unwrap() = Some(child);
-        *self.port.lock().unwrap() = Some(port);
+
+        let port_val = port;
+        *self.port.lock().unwrap() = Some(port_val);
 
         // Give server time to start
         std::thread::sleep(std::time::Duration::from_millis(1500));
 
-        Ok(port)
+        Ok(port_val)
     }
 
     pub fn stop(&self) {
@@ -55,6 +76,12 @@ impl PythonServer {
                 let _ = child.kill();
             }
         }
+    }
+}
+
+impl Drop for PythonServer {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
@@ -88,11 +115,10 @@ fn find_python_binary(resource_path: &std::path::Path) -> std::path::PathBuf {
 }
 
 #[tauri::command]
-pub async fn get_python_server_port(
-    app: AppHandle,
-) -> Result<Option<u16>, String> {
+pub async fn get_python_server_port(app: AppHandle) -> Result<Option<u16>, String> {
     let server = app.state::<PythonServer>();
-    Ok(*server.port.lock().unwrap())
+    let port = *server.port.lock().unwrap();
+    Ok(port)
 }
 
 #[tauri::command]

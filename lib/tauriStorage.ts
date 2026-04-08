@@ -34,7 +34,7 @@ async function invoke<T>(command: string, args?: Record<string, unknown>): Promi
 // ─── Browser shim (dev only) ──────────────────────────────────────────────────
 
 function browserShim<T>(command: string, args?: Record<string, unknown>): T {
-  const KEY = 'memorium_dev_palaces';
+  const KEY = 'mnemorium_dev_palaces';
   const load = (): Palace[] => {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
     catch { return []; }
@@ -119,6 +119,54 @@ export interface TauriAnnotationRow {
 
 export async function getPalaces(): Promise<TauriPalaceRow[]> {
   return invoke<TauriPalaceRow[]>('get_palaces');
+}
+
+// ─── Full palace load (single JOIN) ──────────────────────────────────────────
+
+export interface TauriPalaceFullRow {
+  // Palace
+  palace_id: string;
+  palace_name: string;
+  palace_description?: string;
+  palace_created_at: number;
+  palace_updated_at: number;
+  // Image (null when palace has no images)
+  image_id?: string;
+  image_name?: string;
+  image_file_name?: string;
+  image_local_file_path?: string;
+  image_width?: number;
+  image_height?: number;
+  image_is_360?: boolean;
+  image_sort_order?: number;
+  image_created_at?: number;
+  // Annotation (null when image has no annotations)
+  ann_id?: string;
+  ann_text?: string;
+  ann_note?: string;
+  ann_pos_x?: number;
+  ann_pos_y?: number;
+  ann_pos_z?: number;
+  ann_rot_x?: number;
+  ann_rot_y?: number;
+  ann_rot_z?: number;
+  ann_is_visible?: boolean;
+  ann_is_generated?: boolean;
+  ann_image_file_path?: string;
+  ann_ai_prompt?: string;
+  ann_fsrs_stability?: number;
+  ann_fsrs_difficulty?: number;
+  ann_fsrs_due?: number;
+  ann_fsrs_state?: number;
+  ann_fsrs_reps?: number;
+  ann_fsrs_lapses?: number;
+  ann_fsrs_last_review?: number;
+  ann_created_at?: number;
+  ann_updated_at?: number;
+}
+
+export async function getPalacesFull(): Promise<TauriPalaceFullRow[]> {
+  return invoke<TauriPalaceFullRow[]>('get_palaces_full');
 }
 
 export async function createPalace(name: string, description?: string): Promise<TauriPalaceRow> {

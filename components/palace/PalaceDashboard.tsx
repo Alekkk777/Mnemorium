@@ -3,10 +3,11 @@
  * Homepage shown when no palace is selected.
  * Shows palace grid with FSRS due counts.
  */
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Brain, Plus, Target, Image as ImageIcon, BookOpen } from 'lucide-react';
 import { usePalaceStore } from '@/lib/store';
 import { getDueAnnotations } from '@/lib/fsrs';
+import { getImageUrl } from '@/lib/tauriImageStorage';
 import { Palace } from '@/types';
 
 interface PalaceDashboardProps {
@@ -31,8 +32,17 @@ function PalaceCard({
   const dueCount = useMemo(() => getDueAnnotations(allAnnotations).length, [allAnnotations]);
   const totalAnnotations = allAnnotations.length;
 
-  // Use first image as thumbnail (placeholder if none)
+  // Use first image as thumbnail
   const firstImage = palace.images[0];
+  const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (firstImage?.localFilePath) {
+      getImageUrl(firstImage.localFilePath).then(setThumbUrl).catch(() => {});
+    } else {
+      setThumbUrl(null);
+    }
+  }, [firstImage?.localFilePath]);
 
   return (
     <div
@@ -42,13 +52,15 @@ function PalaceCard({
       {/* Due badge */}
       {dueCount > 0 && (
         <div className="absolute -top-2 -right-2 z-10 px-2 py-0.5 bg-accent text-white text-xs font-bold rounded-full shadow-lg">
-          {dueCount} oggi
+          {dueCount} today
         </div>
       )}
 
       {/* Thumbnail */}
       <div className="w-full h-32 bg-background rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-        {firstImage?.localFilePath ? (
+        {thumbUrl ? (
+          <img src={thumbUrl} alt={firstImage?.name} className="w-full h-full object-cover" />
+        ) : firstImage ? (
           <div className="w-full h-full bg-white/5 flex items-center justify-center">
             <ImageIcon className="w-8 h-8 text-white/20" />
           </div>
@@ -62,11 +74,11 @@ function PalaceCard({
       <div className="flex items-center gap-3 text-xs text-muted">
         <span className="flex items-center gap-1">
           <ImageIcon className="w-3 h-3" />
-          {palace.images.length} immagini
+          {palace.images.length} images
         </span>
         <span className="flex items-center gap-1">
           <BookOpen className="w-3 h-3" />
-          {totalAnnotations} note
+          {totalAnnotations} notes
         </span>
       </div>
 
@@ -77,7 +89,7 @@ function PalaceCard({
           className="mt-3 w-full py-1.5 bg-accent/20 text-accent text-xs font-medium rounded-lg hover:bg-accent hover:text-white transition-colors flex items-center justify-center gap-1"
         >
           <Target className="w-3 h-3" />
-          Ripassa {dueCount} annotazioni
+          Review {dueCount} annotations
         </button>
       )}
     </div>
@@ -104,17 +116,17 @@ export default function PalaceDashboard({
         <div className="text-center max-w-md px-8">
           <Brain className="w-20 h-20 text-accent/30 mx-auto mb-6" />
           <h2 className="text-2xl font-bold text-foreground mb-3">
-            Inizia il tuo viaggio
+            Start your journey
           </h2>
           <p className="text-muted mb-8">
-            Crea il tuo primo palazzo della memoria per iniziare a usare la tecnica dei loci.
+            Create your first memory palace to start using the method of loci.
           </p>
           <button
             onClick={onCreatePalace}
             className="flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-xl hover:bg-accent-hover transition-colors font-semibold mx-auto"
           >
             <Plus className="w-5 h-5" />
-            Crea il Primo Palazzo
+            Create First Palace
           </button>
         </div>
       </div>
@@ -130,9 +142,9 @@ export default function PalaceDashboard({
             <Target className="w-5 h-5 text-accent" />
             <div>
               <p className="font-semibold text-foreground">
-                {totalDue} annotazioni da ripassare oggi
+                {totalDue} annotations to review today
               </p>
-              <p className="text-xs text-muted">Sessione di ripasso consigliata</p>
+              <p className="text-xs text-muted">Recommended review session</p>
             </div>
           </div>
           <button
@@ -151,14 +163,14 @@ export default function PalaceDashboard({
             }}
             className="px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent-hover transition-colors"
           >
-            Inizia
+            Start
           </button>
         </div>
       )}
 
       {/* Palace grid */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">I tuoi palazzi</h2>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Your palaces</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {palaces.map(palace => (
             <PalaceCard
@@ -173,7 +185,7 @@ export default function PalaceDashboard({
             className="p-4 border-2 border-dashed border-white/20 rounded-xl hover:border-accent/40 transition-colors flex flex-col items-center justify-center gap-2 text-muted hover:text-foreground h-full min-h-[180px]"
           >
             <Plus className="w-8 h-8" />
-            <span className="text-sm font-medium">Nuovo Palazzo</span>
+            <span className="text-sm font-medium">New Palace</span>
           </button>
         </div>
       </div>

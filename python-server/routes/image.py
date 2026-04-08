@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-MODELS_DIR = Path.home() / ".memorium" / "models"
+MODELS_DIR = Path.home() / ".mnemorium" / "models"
 FLUX_MODEL_ID = "black-forest-labs/FLUX.1-schnell"
 
 

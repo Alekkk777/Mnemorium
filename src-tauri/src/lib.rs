@@ -26,23 +26,16 @@ pub fn run() {
 
             app.manage(AppState { db: pool });
 
-            // Start Python AI server (non-blocking, best-effort)
-            let python_server = python::PythonServer::new();
-            let server_arc = std::sync::Arc::new(python_server);
-            let server_for_cleanup = server_arc.clone();
-            let server_handle = handle.clone();
+            // Manage Python server (Tauri wraps in Arc internally)
+            app.manage(python::manager::PythonServer::new());
 
+            // Start Python AI server in background thread (non-blocking, best-effort)
+            let server_handle = handle.clone();
             std::thread::spawn(move || {
-                match server_arc.start(&server_handle) {
+                let server = server_handle.state::<python::manager::PythonServer>();
+                match server.start(&server_handle) {
                     Ok(port) => println!("[Python] AI server started on port {}", port),
                     Err(e) => println!("[Python] AI server not available: {} (app continues without AI)", e),
-                }
-            });
-
-            // Register cleanup on app exit
-            app.on_window_event(move |_window, event| {
-                if let tauri::WindowEvent::Destroyed = event {
-                    server_for_cleanup.stop();
                 }
             });
 
@@ -51,6 +44,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Palace
             commands::palace::get_palaces,
+            commands::palace::get_palaces_full,
             commands::palace::create_palace,
             commands::palace::update_palace,
             commands::palace::delete_palace,

@@ -1,184 +1,115 @@
-# 🧠 Memorium - Digital Memory Palace
+# Mnemorium — Digital Memory Palace
 
-> Transform your notes into vivid mental images using the ancient Method of Loci technique, powered by AI.
+> Build vivid memory palaces from your own spaces. Place notes in 3D, study with spaced repetition, generate mnemonics with AI.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://memorium-v2.vercel.app)
+[![Website](https://img.shields.io/badge/website-mnemorium.com-7c3aed)](https://mnemorium.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tauri](https://img.shields.io/badge/Tauri-2.0-blue)](https://tauri.app/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 
-![Memorium Screenshot](public/screenshot.png)
+## What is Mnemorium?
 
-## ✨ Features
+Mnemorium is a **desktop app** (Mac, Windows, Linux) that lets you build memory palaces from your own photos — panoramic 360° images or regular photos of any space you know well. Place annotation markers in 3D, attach notes and images, then study with a built-in FSRS spaced repetition system.
 
-- **🏛️ 360° Memory Palaces**: Upload panoramic photos of your spaces (home, office, landmarks)
-- **📍 Interactive Annotations**: Place notes directly in 3D space with visual markers
-- **🎯 Active Recall Mode**: Test your memory with built-in spaced repetition
-- **🤖 AI-Powered Generation**: Auto-generate visual mnemonics from your text (optional)
-- **📊 Progress Tracking**: Monitor your recall accuracy and improvement over time
-- **🔒 Privacy First**: All data stored locally in your browser (IndexedDB)
-- **📱 Progressive Web App**: Install and use offline on any device
-- **🌐 No Account Required**: Start immediately, no registration needed
+All data is stored **locally on your machine** in SQLite. No account, no cloud, no telemetry.
 
-## 🎯 Why Memory Palaces?
+## Features
 
-The Method of Loci (Memory Palace technique) is **10x more effective** than traditional memorization:
+- **360° and standard image palaces** — upload your own photos (home, library, campus, etc.)
+- **3D annotation placement** — click anywhere in the viewer to place a note in 3D space
+- **FSRS-5 spaced repetition** — recall sessions scheduled by a state-of-the-art algorithm
+- **AI annotation generation** — paste your study notes, get mnemonics placed across your palace automatically (requires your own OpenAI or Gemini API key, or a local Ollama model)
+- **QR photo upload** — scan a QR code with your phone to upload photos wirelessly from the same LAN
+- **Export / Import** — full backup as a `.mnemorium` file, including all images
+- **Privacy first** — SQLite database stored in your app data folder, no external connections except the AI provider you choose
 
-- Used by **memory champions** to remember thousands of items
-- Based on **spatial memory** (your strongest memory type)
-- Backed by **2000+ years** of proven results
-- Perfect for: exams, presentations, languages, facts, lists, speeches
+## Download
 
-## 🚀 Quick Start
+Go to **[mnemorium.com](https://mnemorium.com)** or the [GitHub Releases](https://github.com/Alekkk777/Mnemorium_open_v2/releases) page and download the installer for your platform:
 
-### Online (Recommended)
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `Mnemorium_aarch64.dmg` |
+| macOS (Intel) | `Mnemorium_x86_64.dmg` |
+| Windows | `Mnemorium_x64.msi` |
+| Linux | `mnemorium_amd64.AppImage` |
 
-Visit [memorium-v2.vercel.app](https://memorium-v2.vercel.app) and start immediately!
+## Build from source
 
-### Local Development
+**Prerequisites:** [Rust](https://rustup.rs/), [Node.js 20+](https://nodejs.org/), Python 3.11+
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/memorium-v2.git
-cd memorium-v2
+git clone https://github.com/Alekkk777/Mnemorium_open_v2.git
+cd Mnemorium_open_v2
 
-# Install dependencies
+# Build the Python AI server (bundles it as a standalone executable)
+python3 scripts/build_python_server.py
+
+# Install JS dependencies
 npm install
 
-# Run development server
-npm run dev
+# Run in dev mode (hot reload)
+npm run tauri dev
 
-# Open http://localhost:3001
+# Or build a release binary
+npm run tauri build
 ```
 
-## 📖 How to Use
+## AI providers
 
-### 1️⃣ Create Your First Palace
+Mnemorium supports three AI backends for annotation generation:
 
-- Upload 360° photos (use Google Street View app)
-- Or use regular photos of familiar places
-- Import standard palaces from the gallery
+| Provider | Setup |
+|----------|-------|
+| **OpenAI** (GPT-4o) | Enter your API key in Settings |
+| **Google Gemini** | Enter your API key in Settings |
+| **Local (Ollama)** | Run Ollama locally — no key needed |
 
-### 2️⃣ Add Annotations
+The AI server runs as a local FastAPI process bundled with the app. It only makes outbound calls when you explicitly trigger generation, and only to the provider you configured.
 
-- Click in the 3D viewer to place notes
-- Add text, images, and vivid descriptions
-- Use AI to generate mnemonics (optional)
+## Tech stack
 
-### 3️⃣ Explore & Study
+| Layer | Technology |
+|-------|-----------|
+| Desktop shell | Tauri 2 (Rust) |
+| Frontend | Next.js 14, TypeScript, Tailwind CSS |
+| 3D viewer | Three.js + React Three Fiber |
+| Database | SQLite via sqlx |
+| State | Zustand |
+| Spaced repetition | FSRS-5 |
+| AI server | FastAPI + uvicorn (PyInstaller bundled) |
 
-- Navigate through your palace in 3D
-- Review all annotations in context
-- Use spatial memory naturally
-
-### 4️⃣ Test with Recall Mode
-
-- Active recall strengthens memory
-- Get instant feedback
-- Track progress over time
-
-## 🛠️ Tech Stack
-
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **UI**: Tailwind CSS
-- **3D**: Three.js + React Three Fiber
-- **State**: Zustand
-- **Storage**: IndexedDB (Dexie)
-- **Icons**: Lucide React
-- **AI**: OpenAI GPT-4 (optional, BYO API key)
-
-## 📁 Project Structure
+## Project structure
 
 ```
-memorium-v2/
-├── components/          # React components
-│   ├── annotations/    # Annotation system
-│   ├── palace/         # Palace viewer & management
-│   └── ui/            # Reusable UI components
-├── lib/               # Business logic
-│   ├── store.ts       # Zustand state management
-│   ├── imageDB.ts     # IndexedDB wrapper
-│   ├── aiGenerator.ts # OpenAI integration
-│   └── security.ts    # Encryption utilities
-├── pages/             # Next.js pages
-│   ├── index.tsx      # Landing page
-│   └── userhome.tsx   # Main app
-├── public/            # Static assets
-└── types/             # TypeScript definitions
+mnemorium/
+├── components/          # React UI components
+│   ├── annotations/     # Annotation system, AI flow, recall mode
+│   ├── palace/          # Palace viewer, gallery, QR upload
+│   └── ui/              # Shared UI primitives
+├── hooks/               # Custom React hooks
+├── lib/                 # Business logic (store, FSRS, AI providers)
+├── pages/               # Next.js pages
+├── python-server/       # FastAPI AI server (bundled via PyInstaller)
+├── scripts/             # Build utilities
+├── src-tauri/           # Rust/Tauri backend, SQLite commands
+└── types/               # TypeScript type definitions
 ```
 
-## 🔐 Privacy & Security
+## Contributing
 
-- **100% Local Storage**: Data never leaves your browser
-- **Optional Encryption**: AES-256 encryption for sensitive data
-- **No Tracking**: Zero analytics or tracking scripts
-- **Open Source**: Audit the code yourself
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes
+4. Open a Pull Request
 
-## 🌐 PWA Features
+Before submitting, make sure `npm run build` and `cargo check` both pass with zero errors.
 
-- **Offline Support**: Works without internet after first load
-- **Install Anywhere**: Add to home screen (mobile/desktop)
-- **Fast Loading**: Service worker caching
-- **Push Notifications**: Reminder support (coming soon)
+## License
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Development Guidelines
-
-- Follow existing code style (TypeScript + ESLint)
-- Add tests for new features
-- Update documentation
-- Keep commits atomic and descriptive
-
-## 📝 Roadmap
-
-- [x] 360° Image Support
-- [x] Active Recall Mode
-- [x] AI Generation
-- [x] Progress Tracking
-- [ ] Spaced Repetition Algorithm (SRS)
-- [ ] Export/Import Palaces
-- [ ] Collaborative Palaces
-- [ ] Mobile App (React Native)
-- [ ] Voice Notes
-- [ ] AR Mode
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Inspired by the ancient [Method of Loci](https://en.wikipedia.org/wiki/Method_of_loci)
-- Built with amazing open-source libraries
-- Icons by [Lucide](https://lucide.dev/)
-
-## 📧 Contact
-
-- **Email**: memorium.ai@gmail.com
-- **Issues**: [GitHub Issues](https://github.com/yourusername/memorium-v2/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/memorium-v2/discussions)
-
-## 🌟 Support
-
-If you find this project useful:
-
-- ⭐ Star the repository
-- 🐛 Report bugs
-- 💡 Suggest features
-- 🔀 Submit pull requests
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-Made with 🧠 by [Your Name]
-
-**Remember better. Learn faster. Never forget.**
+Made by [Alessandro Saladino](https://github.com/Alekkk777)

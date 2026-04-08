@@ -24,7 +24,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: `${{ github.ref_name }}`,
-              name: `Memorium ${{ github.ref_name }}`,
+              name: `Mnemorium ${{ github.ref_name }}`,
               body: 'See CHANGELOG.md for details.',
               draft: true,
               prerelease: false
@@ -39,16 +39,16 @@ jobs:
         platform:
           - os: macos-latest
             args: '--target aarch64-apple-darwin'
-            artifact_name: 'Memorium_aarch64.dmg'
+            python_cmd: python3
           - os: macos-latest
             args: '--target x86_64-apple-darwin'
-            artifact_name: 'Memorium_x86_64.dmg'
+            python_cmd: python3
           - os: ubuntu-22.04
             args: ''
-            artifact_name: 'memorium_amd64.AppImage'
+            python_cmd: python3
           - os: windows-latest
             args: ''
-            artifact_name: 'Memorium_x64.msi'
+            python_cmd: python
 
     runs-on: ${{ matrix.platform.os }}
 
@@ -56,12 +56,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ── Python AI server → PyInstaller ──────────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: python-server/requirements.txt
+
+      - name: Build Python AI server (PyInstaller)
+        run: ${{ matrix.platform.python_cmd }} scripts/build_python_server.py
+
+      # ── Node / Frontend ─────────────────────────────────────────────────────
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: 'npm'
 
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # ── Rust ─────────────────────────────────────────────────────────────────
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -72,21 +88,31 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Install Linux dependencies
+      # ── Linux system deps ────────────────────────────────────────────────────
+      - name: Install Linux system dependencies
         if: matrix.platform.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
-      - name: Install frontend dependencies
-        run: npm ci
-
+      # ── Tauri build + upload ─────────────────────────────────────────────────
       - name: Build and upload to release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple code signing (optional — set in GitHub Secrets to enable)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.platform.args }}

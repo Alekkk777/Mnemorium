@@ -7,7 +7,7 @@ import { useAI } from '@/hooks/useAI';
 import { Zap, ZapOff, Loader2 } from 'lucide-react';
 
 const PROVIDER_LABELS: Record<string, string> = {
-  local: 'AI locale',
+  local: 'Local AI',
   gemini: 'Gemini AI',
   openai: 'OpenAI',
   none: 'AI offline',
@@ -24,7 +24,7 @@ export default function AIStatusBar() {
         className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
                    bg-surface-elevated border border-white/10 shadow-lg backdrop-blur-sm
                    cursor-default select-none"
-        title={isAvailable ? `Provider: ${label}` : 'AI non disponibile'}
+        title={isAvailable ? `Provider: ${label}` : 'AI not available'}
       >
         {isLoading ? (
           <Loader2 className="w-3 h-3 animate-spin text-muted" />
@@ -34,7 +34,7 @@ export default function AIStatusBar() {
           <ZapOff className="w-3 h-3 text-muted" />
         )}
         <span className={isAvailable ? 'text-foreground' : 'text-muted'}>
-          {isLoading ? 'Caricamento AI…' : label}
+          {isLoading ? 'Loading AI…' : label}
         </span>
       </div>
     </div>

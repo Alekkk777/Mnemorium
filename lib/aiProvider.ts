@@ -7,7 +7,15 @@
 import { AIProvider, AIProviderType } from '@/types/ai';
 import { LocalAIProvider } from './providers/localAIProvider';
 import { GeminiProvider, getGeminiKey } from './providers/geminiProvider';
-import { OpenAIProvider, getOpenAIKey } from './providers/openAIProvider';
+import {
+  OpenAIProvider,
+  getOpenAIKey,
+  generateAnnotations as openAIGenerateAnnotations,
+  AIGenerationRequest,
+  AIGeneratedAnnotation,
+} from './providers/openAIProvider';
+
+export type { AIGenerationRequest, AIGeneratedAnnotation };
 
 let _activeProvider: AIProvider | null = null;
 let _activeType: AIProviderType = 'none';
@@ -69,13 +77,56 @@ export async function autoDetectProvider(): Promise<AIProviderType> {
 /** Convenience: generate mnemonic with active provider */
 export async function generateMnemonic(text: string, language?: string): Promise<string> {
   const provider = getActiveProvider();
-  if (!provider) throw new Error('Nessun provider AI configurato');
+  if (!provider) throw new Error('No AI provider configured');
   return provider.generateMnemonic(text, language);
 }
 
 /** Convenience: generate image with active provider */
 export async function generateImage(prompt: string): Promise<string> {
   const provider = getActiveProvider();
-  if (!provider) throw new Error('Nessun provider AI configurato');
+  if (!provider) throw new Error('No AI provider configured');
   return provider.generateImage(prompt);
+}
+
+/** Returns true if any AI provider is configured and ready */
+export function isAIEnabled(): boolean {
+  return getActiveProvider() !== null;
+}
+
+/**
+ * Generate mnemonic annotations from notes text.
+ * Currently routes to OpenAI implementation; falls back to per-annotation generateMnemonic for other providers.
+ */
+export async function generateAnnotations(
+  request: AIGenerationRequest
+): Promise<AIGeneratedAnnotation[]> {
+  const provider = getActiveProvider();
+  if (!provider) throw new Error('No AI provider configured');
+
+  const { notesText, targetCount, imagesCount, language = 'italiano' } = request;
+
+  if (provider.type === 'openai') {
+    return openAIGenerateAnnotations(request);
+  }
+
+  // Gemini: single batch call
+  if (provider.type === 'gemini') {
+    const gemini = provider as GeminiProvider;
+    const results = await gemini.generateAnnotationsBatch(notesText, targetCount, imagesCount, language);
+    if (results.length > 0) return results;
+    // fallthrough to line-by-line if batch returned empty
+  }
+
+  // Local / fallback: generate one mnemonic per line
+  const lines = notesText.split(/\n+/).filter(Boolean).slice(0, targetCount);
+  const results: AIGeneratedAnnotation[] = [];
+  for (let i = 0; i < Math.min(lines.length, targetCount); i++) {
+    const note = await provider.generateMnemonic(lines[i], language);
+    results.push({
+      description: lines[i].slice(0, 50),
+      note,
+      imageIndex: i % imagesCount,
+    });
+  }
+  return results;
 }

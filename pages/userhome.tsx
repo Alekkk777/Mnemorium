@@ -17,6 +17,8 @@ import PalaceCreationChoice from '@/components/palace/PalaceCreationChoice';
 import RecallModeNew, { RecallModeNewResults } from '@/components/annotations/RecallModeNew';
 import FSRSDashboard from '@/components/palace/FSRSDashboard';
 import { getSetting, setSetting } from '@/lib/tauriStorage';
+import { setActiveProviderType } from '@/lib/aiProvider';
+import { AIProviderType } from '@/types/ai';
 
 const PalaceList = dynamic(() => import('@/components/palace/PalaceList'), { ssr: false });
 const PalaceViewer = dynamic(() => import('@/components/palace/PalaceViewer'), { ssr: false });
@@ -49,23 +51,37 @@ export default function UserHome() {
   useEffect(() => {
     loadPalaces();
 
+    // Restore onboarding state
     getSetting<string>('onboarding_seen').then((seen) => {
       if (!seen) setShowOnboarding(true);
     }).catch(() => {
-      if (!localStorage.getItem('memorium_onboarding_seen')) setShowOnboarding(true);
+      setShowOnboarding(true);
     });
+
+    // Restore AI provider + API keys from SQLite into localStorage + memory
+    Promise.all([
+      getSetting<string>('ai_provider'),
+      getSetting<string>('gemini_api_key_b64'),
+      getSetting<string>('openai_api_key_b64'),
+    ]).then(([provider, geminiB64, openaiB64]) => {
+      // Rehydrate localStorage so getGeminiKey()/getOpenAIKey() work
+      if (geminiB64) localStorage.setItem('mnemorium_gemini_key', geminiB64);
+      if (openaiB64) localStorage.setItem('mnemorium_openai_key', openaiB64);
+      // Re-activate the last used provider
+      if (provider && provider !== 'none') {
+        setActiveProviderType(provider as AIProviderType);
+      }
+    }).catch(() => {});
   }, [loadPalaces]);
 
   const handleOnboardingComplete = async () => {
-    try { await setSetting('onboarding_seen', 'true'); }
-    catch { localStorage.setItem('memorium_onboarding_seen', 'true'); }
+    await setSetting('onboarding_seen', 'true').catch(() => {});
     setShowOnboarding(false);
     setShowPalaceCreation(true);
   };
 
   const handleOnboardingSkip = async () => {
-    try { await setSetting('onboarding_seen', 'true'); }
-    catch { localStorage.setItem('memorium_onboarding_seen', 'true'); }
+    await setSetting('onboarding_seen', 'true').catch(() => {});
     setShowOnboarding(false);
   };
 
@@ -108,7 +124,7 @@ export default function UserHome() {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-accent mx-auto mb-4" />
-          <p className="text-muted font-medium">Caricamento palazzi...</p>
+          <p className="text-muted font-medium">Loading palaces...</p>
         </div>
       </div>
     );
@@ -133,8 +149,8 @@ export default function UserHome() {
           <div className="bg-gradient-to-r from-accent to-purple-400 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
             <span className="text-xl">🎉</span>
             <div>
-              <p className="font-bold text-sm">Ottimo lavoro!</p>
-              <p className="text-xs">{lastResults.accuracy.toFixed(0)}% di accuratezza</p>
+              <p className="font-bold text-sm">Great work!</p>
+              <p className="text-xs">{lastResults.accuracy.toFixed(0)}% accuracy</p>
             </div>
           </div>
         </div>
@@ -153,14 +169,14 @@ export default function UserHome() {
 
             <div className="flex items-center gap-2">
               <Brain className="w-8 h-8 text-accent" />
-              <h1 className="text-xl font-bold text-foreground">Memorium</h1>
+              <h1 className="text-xl font-bold text-foreground">Mnemorium</h1>
             </div>
 
             {currentPalace && (
               <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-accent/10 rounded-lg">
                 <span className="text-sm font-medium text-foreground">{currentPalace.name}</span>
                 <span className="text-xs text-accent">•</span>
-                <span className="text-xs text-muted">{totalAnnotations} note</span>
+                <span className="text-xs text-muted">{totalAnnotations} notes</span>
               </div>
             )}
           </div>
@@ -204,7 +220,7 @@ export default function UserHome() {
               className="flex items-center gap-2 px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-hover transition-colors font-medium shadow-sm"
             >
               <Plus className="w-5 h-5" />
-              <span className="hidden sm:inline">Nuovo</span>
+              <span className="hidden sm:inline">New</span>
             </button>
 
             <button
@@ -229,7 +245,7 @@ export default function UserHome() {
         >
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
-              <h2 className="text-lg font-semibold text-foreground">I Miei Palazzi</h2>
+              <h2 className="text-lg font-semibold text-foreground">My Palaces</h2>
               <button
                 onClick={() => setLeftSidebarOpen(false)}
                 className="lg:hidden p-2 hover:bg-white/10 rounded-lg"
@@ -245,11 +261,11 @@ export default function UserHome() {
             <div className="p-4 border-t border-white/10 bg-accent/5">
               <div className="flex items-center gap-2 text-sm mb-1">
                 <Brain className="w-4 h-4 text-accent" />
-                <span className="font-medium text-foreground">{palaces.length} palazzo/i</span>
+                <span className="font-medium text-foreground">{palaces.length} palace(s)</span>
               </div>
               {currentPalace && (
                 <div className="text-xs text-muted">
-                  {currentPalace.images.length} immagini selezionate
+                  {currentPalace.images.length} images selected
                 </div>
               )}
             </div>
@@ -259,9 +275,8 @@ export default function UserHome() {
         {/* Main Content */}
         <main className="flex-1 relative bg-background overflow-hidden">
           {currentPalace ? (
-            viewMode === 'explorer' ? (
-              <PalaceViewer palace={currentPalace} />
-            ) : null
+            // Keep viewer mounted in both explorer and stats modes
+            <PalaceViewer palace={currentPalace} />
           ) : (
             <PalaceDashboard
               onCreatePalace={() => setShowPalaceCreation(true)}

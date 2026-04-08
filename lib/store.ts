@@ -13,6 +13,7 @@ import { create } from 'zustand';
 import { Palace, PalaceImage, Annotation } from '@/types';
 import {
   getPalaces as dbGetPalaces,
+  getPalacesFull,
   createPalace as dbCreatePalace,
   updatePalace as dbUpdatePalace,
   deletePalace as dbDeletePalace,
@@ -26,6 +27,7 @@ import {
   TauriPalaceRow,
   TauriImageRow,
   TauriAnnotationRow,
+  TauriPalaceFullRow,
 } from './tauriStorage';
 import { deleteImageFile } from './tauriImageStorage';
 
@@ -71,13 +73,13 @@ function rowToAnnotation(row: TauriAnnotationRow): Annotation {
     isGenerated: row.is_generated,
     imageFilePath: row.image_file_path,
     aiPrompt: row.ai_prompt,
-    fsrsCard: row.fsrs_state !== undefined ? {
+    fsrsCard: (row.fsrs_state !== undefined && row.fsrs_state !== null) ? {
       stability: row.fsrs_stability,
       difficulty: row.fsrs_difficulty,
       due: row.fsrs_due ? new Date(row.fsrs_due * 1000) : undefined,
       state: row.fsrs_state,
-      reps: row.fsrs_reps,
-      lapses: row.fsrs_lapses,
+      reps: row.fsrs_reps ?? 0,
+      lapses: row.fsrs_lapses ?? 0,
       lastReview: row.fsrs_last_review ? new Date(row.fsrs_last_review * 1000) : undefined,
     } : undefined,
     createdAt: new Date(row.created_at * 1000).toISOString(),
@@ -133,27 +135,82 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
   currentImageIndex: 0,
   isLoading: false,
 
-  // ── Load all palaces with their images and annotations ─────────────────────
+  // ── Load all palaces with a single JOIN query (replaces N+1 pattern) ────────
   loadPalaces: async () => {
     set({ isLoading: true });
     try {
-      const palaceRows = await dbGetPalaces();
-      const palaces: Palace[] = [];
+      const rows = await getPalacesFull();
 
-      for (const palaceRow of palaceRows) {
-        const imageRows = await getPalaceImages(palaceRow.id);
-        const images: PalaceImage[] = [];
+      // Reconstruct hierarchy: Palace → PalaceImage → Annotation
+      const palaceMap = new Map<string, Palace>();
+      const imageMap = new Map<string, PalaceImage>();
 
-        for (const imageRow of imageRows) {
-          const annotationRows = await getAnnotations(imageRow.id);
-          const annotations = annotationRows.map(rowToAnnotation);
-          images.push(rowToImage(imageRow, annotations));
+      for (const row of rows) {
+        // Create palace entry (once per palace_id)
+        if (!palaceMap.has(row.palace_id)) {
+          palaceMap.set(row.palace_id, {
+            _id: row.palace_id,
+            name: row.palace_name,
+            description: row.palace_description,
+            images: [],
+            createdAt: new Date(row.palace_created_at * 1000),
+            updatedAt: new Date(row.palace_updated_at * 1000),
+          });
         }
 
-        palaces.push(rowToPalace(palaceRow, images));
+        // Create image entry (once per image_id)
+        if (row.image_id && !imageMap.has(row.image_id)) {
+          const image = rowToImage(
+            {
+              id: row.image_id,
+              palace_id: row.palace_id,
+              name: row.image_name!,
+              file_name: row.image_file_name!,
+              local_file_path: row.image_local_file_path,
+              width: row.image_width!,
+              height: row.image_height!,
+              is_360: row.image_is_360!,
+              sort_order: row.image_sort_order!,
+              created_at: row.image_created_at!,
+            },
+            []
+          );
+          imageMap.set(row.image_id, image);
+          palaceMap.get(row.palace_id)!.images.push(image);
+        }
+
+        // Add annotation to image
+        if (row.image_id && row.ann_id) {
+          const ann = rowToAnnotation({
+            id: row.ann_id,
+            image_id: row.image_id,
+            text: row.ann_text!,
+            note: row.ann_note,
+            pos_x: row.ann_pos_x!,
+            pos_y: row.ann_pos_y!,
+            pos_z: row.ann_pos_z!,
+            rot_x: row.ann_rot_x ?? 0,
+            rot_y: row.ann_rot_y ?? 0,
+            rot_z: row.ann_rot_z ?? 0,
+            is_visible: row.ann_is_visible ?? true,
+            is_generated: row.ann_is_generated ?? false,
+            image_file_path: row.ann_image_file_path,
+            ai_prompt: row.ann_ai_prompt,
+            fsrs_stability: row.ann_fsrs_stability,
+            fsrs_difficulty: row.ann_fsrs_difficulty,
+            fsrs_due: row.ann_fsrs_due,
+            fsrs_state: row.ann_fsrs_state ?? 0,
+            fsrs_reps: row.ann_fsrs_reps ?? 0,
+            fsrs_lapses: row.ann_fsrs_lapses ?? 0,
+            fsrs_last_review: row.ann_fsrs_last_review,
+            created_at: row.ann_created_at!,
+            updated_at: row.ann_updated_at,
+          });
+          imageMap.get(row.image_id)!.annotations.push(ann);
+        }
       }
 
-      set({ palaces, isLoading: false });
+      set({ palaces: Array.from(palaceMap.values()), isLoading: false });
     } catch (error) {
       console.error('[store] Error loading palaces:', error);
       set({ palaces: [], isLoading: false });
@@ -336,6 +393,17 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
 
   // ── Update annotation ──────────────────────────────────────────────────────
   updateAnnotation: async (palaceId, imageId, annotationId, updates) => {
+    // Deep merge fsrsCard: preserve existing fields when only partial update is provided
+    const currentAnn = get()
+      .palaces.find((p) => p._id === palaceId)
+      ?.images.find((i) => i.id === imageId)
+      ?.annotations.find((a) => a.id === annotationId);
+
+    const mergedFsrsCard =
+      updates.fsrsCard !== undefined
+        ? { ...currentAnn?.fsrsCard, ...updates.fsrsCard }
+        : currentAnn?.fsrsCard;
+
     await dbUpdateAnnotation(annotationId, {
       text: updates.text,
       note: updates.note,
@@ -345,16 +413,16 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
       isVisible: updates.isVisible,
       imageFilePath: updates.imageFilePath,
       aiPrompt: updates.aiPrompt,
-      fsrsStability: updates.fsrsCard?.stability,
-      fsrsDifficulty: updates.fsrsCard?.difficulty,
-      fsrsDue: updates.fsrsCard?.due
-        ? Math.floor(updates.fsrsCard.due.getTime() / 1000)
+      fsrsStability: mergedFsrsCard?.stability,
+      fsrsDifficulty: mergedFsrsCard?.difficulty,
+      fsrsDue: mergedFsrsCard?.due
+        ? Math.floor(mergedFsrsCard.due.getTime() / 1000)
         : undefined,
-      fsrsState: updates.fsrsCard?.state,
-      fsrsReps: updates.fsrsCard?.reps,
-      fsrsLapses: updates.fsrsCard?.lapses,
-      fsrsLastReview: updates.fsrsCard?.lastReview
-        ? Math.floor(updates.fsrsCard.lastReview.getTime() / 1000)
+      fsrsState: mergedFsrsCard?.state,
+      fsrsReps: mergedFsrsCard?.reps,
+      fsrsLapses: mergedFsrsCard?.lapses,
+      fsrsLastReview: mergedFsrsCard?.lastReview
+        ? Math.floor(mergedFsrsCard.lastReview.getTime() / 1000)
         : undefined,
     });
 
@@ -369,7 +437,9 @@ export const usePalaceStore = create<PalaceStore>((set, get) => ({
                   ? {
                       ...image,
                       annotations: image.annotations.map((a) =>
-                        a.id === annotationId ? { ...a, ...updates } : a
+                        a.id === annotationId
+                          ? { ...a, ...updates, fsrsCard: mergedFsrsCard }
+                          : a
                       ),
                     }
                   : image

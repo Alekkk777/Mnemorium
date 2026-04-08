@@ -3,11 +3,11 @@
  * Full-screen FSRS recall experience.
  * Replaces RecallMode.tsx — uses FSRS due queue instead of binary recall.
  */
-import { useState, useEffect, useCallback } from 'react';
-import { Palace, Annotation, FSRSRating } from '@/types';
+import { useState, useCallback, useRef } from 'react';
+import { Palace, FSRSRating } from '@/types';
 import { getDueAnnotations } from '@/lib/fsrs';
 import { useFSRS } from '@/hooks/useFSRS';
-import { X, Brain, Target, TrendingUp, RotateCcw, Trophy } from 'lucide-react';
+import { X, Brain, Target } from 'lucide-react';
 import RecallAnnotationCard from './RecallAnnotationCard';
 
 interface RecallModeNewProps {
@@ -34,22 +34,24 @@ interface RatingEntry {
 }
 
 export default function RecallModeNew({ palace, onClose, onComplete }: RecallModeNewProps) {
-  const allAnnotations = palace.images.flatMap(img =>
-    img.annotations.map(ann => ({ ann, imageId: img.id }))
-  );
-  const dueQueue = getDueAnnotations(allAnnotations.map(x => x.ann));
-
   const { recordRating } = useFSRS(palace._id);
+
+  // Freeze the queue at mount — do NOT recompute it as the store updates mid-session
+  const [allAnnotations] = useState(() =>
+    palace.images.flatMap(img => img.annotations.map(ann => ({ ann, imageId: img.id })))
+  );
+  const [dueQueue] = useState(() => getDueAnnotations(allAnnotations.map(x => x.ann)));
 
   const [phase, setPhase] = useState<Phase>('splash');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [ratings, setRatings] = useState<RatingEntry[]>([]);
+  const [skipped, setSkipped] = useState(0);
+  const skippedRef = useRef(0);
   const [startTime] = useState(Date.now());
 
-  // Find imageId for a given annotation
+  // imageId lookup is stable because allAnnotations is frozen
   const getImageId = useCallback((annotationId: string): string => {
-    const match = allAnnotations.find(x => x.ann.id === annotationId);
-    return match?.imageId ?? '';
+    return allAnnotations.find(x => x.ann.id === annotationId)?.imageId ?? '';
   }, [allAnnotations]);
 
   const handleRate = useCallback(async (rating: FSRSRating) => {
@@ -61,40 +63,67 @@ export default function RecallModeNew({ palace, onClose, onComplete }: RecallMod
       await recordRating(palace._id, imageId, annotation, rating).catch(() => {});
     }
 
-    setRatings(prev => [...prev, { annotationId: annotation.id, rating }]);
+    const newRatings = [...ratings, { annotationId: annotation.id, rating }];
+    setRatings(newRatings);
 
     if (currentIndex + 1 >= dueQueue.length) {
-      setPhase('done');
-    } else {
-      setCurrentIndex(prev => prev + 1);
-    }
-  }, [currentIndex, dueQueue, palace._id, getImageId, recordRating]);
-
-  useEffect(() => {
-    if (phase === 'done') {
+      // Compute results immediately with the complete ratings list (no stale closure)
       const ratingCounts: Record<FSRSRating, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
       let remembered = 0;
       let forgotten = 0;
-
-      for (const { rating } of ratings) {
-        ratingCounts[rating]++;
-        if (rating >= 3) remembered++;
+      for (const { rating: r } of newRatings) {
+        ratingCounts[r]++;
+        if (r >= 3) remembered++;
         else forgotten++;
       }
-
+      const finalSkipped = skippedRef.current;
+      const rated = dueQueue.length - finalSkipped;
       const results: RecallModeNewResults = {
         totalAnnotations: dueQueue.length,
         remembered,
         forgotten,
-        skipped: 0,
-        accuracy: dueQueue.length > 0 ? (remembered / dueQueue.length) * 100 : 0,
+        skipped: finalSkipped,
+        accuracy: rated > 0 ? (remembered / rated) * 100 : 0,
         duration: Date.now() - startTime,
         ratingCounts,
       };
-
+      setPhase('done');
       onComplete(results);
+    } else {
+      setCurrentIndex(prev => prev + 1);
     }
-  }, [phase]);
+  }, [currentIndex, dueQueue, ratings, palace._id, getImageId, recordRating, startTime, onComplete]);
+
+  const handleSkip = useCallback(() => {
+    skippedRef.current += 1;
+    setSkipped(s => s + 1);
+    if (currentIndex + 1 >= dueQueue.length) {
+      // All remaining were skipped — compute results
+      const ratingCounts: Record<FSRSRating, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      let remembered = 0;
+      let forgotten = 0;
+      for (const { rating: r } of ratings) {
+        ratingCounts[r]++;
+        if (r >= 3) remembered++;
+        else forgotten++;
+      }
+      const finalSkipped = skippedRef.current;
+      const rated = dueQueue.length - finalSkipped;
+      const results: RecallModeNewResults = {
+        totalAnnotations: dueQueue.length,
+        remembered,
+        forgotten,
+        skipped: finalSkipped,
+        accuracy: rated > 0 ? (remembered / rated) * 100 : 0,
+        duration: Date.now() - startTime,
+        ratingCounts,
+      };
+      setPhase('done');
+      onComplete(results);
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [currentIndex, dueQueue.length, ratings, startTime, onComplete]);
 
   // ── Splash ──────────────────────────────────────────────────────────────────
   if (phase === 'splash') {
@@ -122,33 +151,33 @@ export default function RecallModeNew({ palace, onClose, onComplete }: RecallMod
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="p-4 bg-surface rounded-xl">
               <p className="text-2xl font-bold text-accent">{dueQueue.length}</p>
-              <p className="text-xs text-muted mt-1">Da ripassare</p>
+              <p className="text-xs text-muted mt-1">To review</p>
             </div>
             <div className="p-4 bg-surface rounded-xl">
               <p className="text-2xl font-bold text-foreground">{totalAnnotations}</p>
-              <p className="text-xs text-muted mt-1">Totale</p>
+              <p className="text-xs text-muted mt-1">Total</p>
             </div>
             <div className="p-4 bg-surface rounded-xl">
               <p className="text-2xl font-bold text-success">
                 {totalAnnotations - dueQueue.length}
               </p>
-              <p className="text-xs text-muted mt-1">In pari</p>
+              <p className="text-xs text-muted mt-1">Up to date</p>
             </div>
           </div>
 
           {dueQueue.length === 0 ? (
             <div className="space-y-4">
               <div className="p-4 bg-success/10 border border-success/20 rounded-xl">
-                <p className="text-success font-medium mb-1">Tutto in pari!</p>
+                <p className="text-success font-medium mb-1">All caught up!</p>
                 <p className="text-sm text-muted">
-                  Non hai annotazioni da ripassare ora. Torna domani!
+                  You have no annotations to review right now. Come back tomorrow!
                 </p>
               </div>
               <button
                 onClick={onClose}
                 className="w-full py-3 bg-surface text-foreground rounded-xl hover:bg-white/10 transition-colors"
               >
-                Torna al palazzo
+                Back to palace
               </button>
             </div>
           ) : (
@@ -157,13 +186,13 @@ export default function RecallModeNew({ palace, onClose, onComplete }: RecallMod
                 onClick={() => setPhase('recall')}
                 className="w-full py-4 bg-accent text-white rounded-xl hover:bg-accent-hover transition-all font-semibold text-lg shadow-lg"
               >
-                Inizia Ripasso
+                Start Review
               </button>
               <button
                 onClick={onClose}
                 className="w-full py-3 bg-surface text-muted hover:text-foreground rounded-xl hover:bg-white/10 transition-colors"
               >
-                Annulla
+                Cancel
               </button>
             </div>
           )}
@@ -198,6 +227,7 @@ export default function RecallModeNew({ palace, onClose, onComplete }: RecallMod
           <RecallAnnotationCard
             annotation={annotation}
             onRate={handleRate}
+            onSkip={handleSkip}
             index={currentIndex}
             total={dueQueue.length}
           />
@@ -206,7 +236,7 @@ export default function RecallModeNew({ palace, onClose, onComplete }: RecallMod
     );
   }
 
-  // ── Done (results handled via useEffect → onComplete) ────────────────────────
+  // ── Done (onComplete called synchronously from handleRate) ──────────────────
   return (
     <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
       <div className="text-center">

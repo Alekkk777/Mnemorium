@@ -1,7 +1,8 @@
-// pages/_app.tsx — Memorium desktop (Tauri)
+// pages/_app.tsx — Mnemorium desktop (Tauri)
 import type { AppProps } from 'next/app';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import '../styles/globals.css';
 import { usePalaceStore } from '@/lib/store';
 import { getSetting } from '@/lib/tauriStorage';
@@ -12,8 +13,12 @@ import { autoDetectProvider } from '@/lib/aiProvider';
 import { setActiveProviderType } from '@/lib/aiProvider';
 import { AIProviderType } from '@/types/ai';
 
+const isTauri = () => typeof window !== 'undefined' && !!(window as any).__TAURI__;
+
 function MyApp({ Component, pageProps }: AppProps) {
   const { loadPalaces } = usePalaceStore();
+  const router = useRouter();
+  const isLanding = router.pathname === '/';
 
   const [appReady, setAppReady] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -21,6 +26,12 @@ function MyApp({ Component, pageProps }: AppProps) {
   const [migrationDone, setMigrationDone] = useState(false);
 
   useEffect(() => {
+    // Landing page in browser (Vercel) — skip all Tauri boot logic
+    if (isLanding && !isTauri()) {
+      setAppReady(true);
+      return;
+    }
+
     async function boot() {
       try {
         // 1. Check if setup wizard has been completed
@@ -56,7 +67,7 @@ function MyApp({ Component, pageProps }: AppProps) {
     }
 
     boot();
-  }, []);
+  }, [isLanding]);
 
   async function onWizardComplete() {
     setShowWizard(false);
@@ -76,7 +87,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       <Head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Memorium</title>
+        <title>Mnemorium</title>
       </Head>
 
       {/* Setup Wizard (first launch) */}
@@ -87,12 +98,16 @@ function MyApp({ Component, pageProps }: AppProps) {
         <MigrationDialog onComplete={onMigrationComplete} />
       )}
 
-      {/* Main App */}
-      {(appReady || migrationDone) && !showWizard && (
-        <>
-          <Component {...pageProps} />
-          <AIStatusBar />
-        </>
+      {/* Main App — landing page always renders, app pages wait for boot */}
+      {isLanding ? (
+        <Component {...pageProps} />
+      ) : (
+        (appReady || migrationDone) && !showWizard && (
+          <>
+            <Component {...pageProps} />
+            <AIStatusBar />
+          </>
+        )
       )}
     </>
   );

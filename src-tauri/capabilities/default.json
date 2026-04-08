@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2/capability.json",
+  "identifier": "default",
+  "description": "Permessi minimi richiesti da Mnemorium — nessun accesso al filesystem al di fuori dei path esplicitamente scelti dall'utente.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+
+    "dialog:allow-open",
+    "dialog:allow-save",
+
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$HOME/**/*.mnemorium" },
+        { "path": "$HOME/**/*.json" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DESKTOP/**" }
+      ]
+    },
+
+    "shell:allow-open",
+
+    "updater:allow-check",
+    "updater:allow-download-and-install"
+  ]
+}

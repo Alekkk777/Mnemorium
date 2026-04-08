@@ -26,13 +26,13 @@ export default function PalaceCreationChoice({ isOpen, onClose }: PalaceCreation
     <Modal 
       isOpen={isOpen} 
       onClose={onClose}
-      title="Crea Nuovo Palazzo"
+      title="Create New Palace"
       size="md"
     >
       <ModalBody>
         <div className="py-8">
           <p className="text-center text-gray-600 mb-8">
-            Scegli come vuoi creare il tuo palazzo della memoria
+            Choose how you want to create your memory palace
           </p>
 
           <div className="grid gap-4">
@@ -47,15 +47,15 @@ export default function PalaceCreationChoice({ isOpen, onClose }: PalaceCreation
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    Crea da Zero
+                    Create from Scratch
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Carica le tue foto 360° personali (casa, ufficio, luoghi visitati) e crea un palazzo completamente personalizzato
+                    Upload your personal 360° photos (home, office, visited places) and create a fully customized palace
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-xs text-blue-600 font-medium">
-                    <span>Massima personalizzazione</span>
+                    <span>Maximum customization</span>
                     <span>•</span>
-                    <span>100% tuo</span>
+                    <span>100% yours</span>
                   </div>
                 </div>
               </div>
@@ -72,15 +72,15 @@ export default function PalaceCreationChoice({ isOpen, onClose }: PalaceCreation
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    Usa Palazzo Standard
+                    Use Standard Palace
                   </h3>
                   <p className="text-sm text-gray-600">
-                    Scegli tra palazzi pre-configurati (es: Foro Romano, Laboratorio, Biblioteca) con annotazioni già pronte
+                    Choose from pre-configured palaces (e.g.: Roman Forum, Lab, Library) with annotations already set up
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-xs text-purple-600 font-medium">
-                    <span>Subito pronto</span>
+                    <span>Ready immediately</span>
                     <span>•</span>
-                    <span>Con esempi</span>
+                    <span>With examples</span>
                   </div>
                 </div>
               </div>
@@ -90,7 +90,7 @@ export default function PalaceCreationChoice({ isOpen, onClose }: PalaceCreation
           {/* Info Box */}
           <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900">
-              <strong>💡 Consiglio:</strong> Se è la prima volta, prova prima un palazzo standard per capire come funziona, poi crea il tuo!
+              <strong>💡 Tip:</strong> If it&apos;s your first time, try a standard palace first to understand how it works, then create your own!
             </p>
           </div>
         </div>

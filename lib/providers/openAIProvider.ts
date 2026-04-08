@@ -8,14 +8,23 @@ import { AIProvider, AIProviderType, VisionObject } from '@/types/ai';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const MODEL = 'gpt-4o-mini';
-const LS_KEY = 'memorium_openai_key';
+const LS_KEY = 'mnemorium_openai_key';
 
-const SYSTEM_PROMPT = `Sei un esperto di tecniche mnemoniche. Trasforma ogni concetto in un'immagine mentale VIVIDA, bizzarra e memorabile.
-Usa colori brillanti, azioni esagerate, proporzioni assurde. Coinvolgi più sensi.
-Rispondi SOLO con l'immagine mnemonica, max 150 parole, senza introduzioni.`;
+const SYSTEM_PROMPT = `You are an expert in mnemonic techniques. Transform every concept into a VIVID, bizarre and memorable mental image.
+Use bright colors, exaggerated actions, absurd proportions. Engage multiple senses.
+Reply ONLY with the mnemonic image, max 150 words, no introductions.`;
 
 export function saveOpenAIKey(key: string): void {
-  localStorage.setItem(LS_KEY, btoa(key));
+  const encoded = btoa(key);
+  localStorage.setItem(LS_KEY, encoded);
+  if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+    import('@tauri-apps/api/core').then(({ invoke }) =>
+      (invoke as (cmd: string, a?: unknown) => Promise<void>)('set_setting', {
+        key: 'openai_api_key_b64',
+        value: encoded,
+      })
+    ).catch(() => {});
+  }
 }
 
 export function getOpenAIKey(): string | null {
@@ -26,6 +35,14 @@ export function getOpenAIKey(): string | null {
 
 export function clearOpenAIKey(): void {
   localStorage.removeItem(LS_KEY);
+  if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+    import('@tauri-apps/api/core').then(({ invoke }) =>
+      (invoke as (cmd: string, a?: unknown) => Promise<void>)('set_setting', {
+        key: 'openai_api_key_b64',
+        value: null,
+      })
+    ).catch(() => {});
+  }
 }
 
 export class OpenAIProvider implements AIProvider {
@@ -66,11 +83,11 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async generateImage(_prompt: string): Promise<string> {
-    throw new Error('Generazione immagini non supportata con OpenAI provider. Usa il provider locale.');
+    throw new Error('Image generation not supported with OpenAI provider. Use the local provider.');
   }
 
   async analyzeImage(_imageBase64: string): Promise<VisionObject[]> {
-    throw new Error('Analisi immagini non supportata in questo provider. Usa il provider locale.');
+    throw new Error('Image analysis not supported with this provider. Use the local provider.');
   }
 }
 

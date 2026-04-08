@@ -1,11 +1,12 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 use tauri::State;
 use uuid::Uuid;
 
 use crate::AppState;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct RecallSessionRow {
     pub id: String,
     pub palace_id: String,
@@ -43,6 +44,14 @@ pub struct PalaceRecallStats {
     pub total_due: i64,
 }
 
+#[derive(FromRow)]
+struct SessionStatsRow {
+    count: i64,
+    avg_acc: Option<f64>,
+    best_acc: Option<f64>,
+    last_date: Option<i64>,
+}
+
 #[tauri::command]
 pub async fn save_recall_session(
     state: State<'_, AppState>,
@@ -57,12 +66,18 @@ pub async fn save_recall_session(
         None
     };
 
-    sqlx::query!(
+    sqlx::query(
         "INSERT INTO recall_sessions (id, palace_id, started_at, ended_at, total_cards, remembered, forgotten, accuracy)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        id, input.palace_id, input.started_at, ended_at,
-        input.total_cards, input.remembered, input.forgotten, accuracy
     )
+    .bind(&id)
+    .bind(&input.palace_id)
+    .bind(input.started_at)
+    .bind(ended_at)
+    .bind(input.total_cards)
+    .bind(input.remembered)
+    .bind(input.forgotten)
+    .bind(accuracy)
     .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -78,11 +93,15 @@ pub async fn save_recall_result(
     let pool = &state.db;
     let id = format!("result_{}", Uuid::new_v4().to_string().replace('-', ""));
 
-    sqlx::query!(
+    sqlx::query(
         "INSERT INTO recall_results (id, session_id, annotation_id, rating, time_spent_ms)
          VALUES (?, ?, ?, ?, ?)",
-        id, input.session_id, input.annotation_id, input.rating, input.time_spent_ms
     )
+    .bind(&id)
+    .bind(&input.session_id)
+    .bind(&input.annotation_id)
+    .bind(input.rating)
+    .bind(input.time_spent_ms)
     .execute(pool)
     .await
     .map_err(|e| e.to_string())?;
@@ -98,34 +117,32 @@ pub async fn get_palace_recall_stats(
     let pool = &state.db;
     let now = Utc::now().timestamp();
 
-    let sessions = sqlx::query!(
+    let stats = sqlx::query_as::<_, SessionStatsRow>(
         "SELECT COUNT(*) as count, AVG(accuracy) as avg_acc, MAX(accuracy) as best_acc, MAX(started_at) as last_date
          FROM recall_sessions WHERE palace_id = ?",
-        palace_id
     )
+    .bind(&palace_id)
     .fetch_one(pool)
     .await
     .map_err(|e| e.to_string())?;
 
-    let due_count: i64 = sqlx::query_scalar!(
-        r#"SELECT COUNT(*) as "count: i64"
-           FROM annotations a
-           JOIN palace_images pi ON a.image_id = pi.id
-           WHERE pi.palace_id = ?
-             AND (a.fsrs_state = 0 OR a.fsrs_due IS NULL OR a.fsrs_due <= ?)"#,
-        palace_id,
-        now
+    let due_count: i64 = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM annotations a
+         JOIN palace_images pi ON a.image_id = pi.id
+         WHERE pi.palace_id = ?
+           AND (a.fsrs_state = 0 OR a.fsrs_due IS NULL OR a.fsrs_due <= ?)",
     )
+    .bind(&palace_id)
+    .bind(now)
     .fetch_one(pool)
     .await
-    .map_err(|e| e.to_string())?
-    .unwrap_or(0);
+    .map_err(|e| e.to_string())?;
 
     Ok(PalaceRecallStats {
-        total_sessions: sessions.count.unwrap_or(0),
-        average_accuracy: sessions.avg_acc.unwrap_or(0.0),
-        best_accuracy: sessions.best_acc.unwrap_or(0.0),
-        last_session_date: sessions.last_date,
+        total_sessions: stats.count,
+        average_accuracy: stats.avg_acc.unwrap_or(0.0),
+        best_accuracy: stats.best_acc.unwrap_or(0.0),
+        last_session_date: stats.last_date,
         total_due: due_count,
     })
 }
@@ -139,13 +156,12 @@ pub async fn get_recent_sessions(
     let pool = &state.db;
     let limit = limit.unwrap_or(10);
 
-    sqlx::query_as!(
-        RecallSessionRow,
+    sqlx::query_as::<_, RecallSessionRow>(
         "SELECT id, palace_id, started_at, ended_at, total_cards, remembered, forgotten, accuracy
          FROM recall_sessions WHERE palace_id = ? ORDER BY started_at DESC LIMIT ?",
-        palace_id,
-        limit
     )
+    .bind(&palace_id)
+    .bind(limit)
     .fetch_all(pool)
     .await
     .map_err(|e| e.to_string())

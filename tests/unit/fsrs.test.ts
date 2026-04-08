@@ -42,11 +42,12 @@ describe('FSRS scheduleAnnotation', () => {
     expect(second.updatedCard.reps).toBe(2);
   });
 
-  it('increases lapses after Again (1)', () => {
-    const ann = makeAnnotation();
-    const first = scheduleAnnotation(ann, 3);
-    const secondAnn = makeAnnotation({ fsrsCard: first.updatedCard });
-    const again = scheduleAnnotation(secondAnn, 1);
+  it('increases lapses after Again (1) on a Review-state card', () => {
+    // FSRS-5 spec: lapses only increment when Again is given in Review state (state=2)
+    const reviewCard = makeAnnotation({
+      fsrsCard: { state: 2, reps: 3, lapses: 0, stability: 5, due: new Date() },
+    });
+    const again = scheduleAnnotation(reviewCard, 1);
 
     expect(again.updatedCard.lapses).toBe(1);
   });

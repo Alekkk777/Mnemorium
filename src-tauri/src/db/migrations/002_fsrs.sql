@@ -1,4 +1,4 @@
--- Memorium SQLite Schema - Migration 002
+-- Mnemorium SQLite Schema - Migration 002
 -- Aggiunge campi FSRS (Free Spaced Repetition Scheduler) alle annotations
 
 ALTER TABLE annotations ADD COLUMN fsrs_stability   REAL;

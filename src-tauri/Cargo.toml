@@ -1,22 +1,22 @@
 [package]
-name = "memorium"
+name = "mnemorium"
 version = "2.1.0"
-description = "Memorium - Digital Memory Palace"
-authors = ["Memorium Contributors"]
+description = "Mnemorium - Digital Memory Palace"
+authors = ["Mnemorium Contributors"]
 license = "MIT"
-repository = "https://github.com/Alekkk777/Memorium_open_v2"
+repository = "https://github.com/Alekkk777/Mnemorium_open_v2"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "memorium_lib"
+name = "mnemorium_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"

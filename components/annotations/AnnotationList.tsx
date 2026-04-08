@@ -22,7 +22,7 @@ export default function AnnotationList({ palace }: AnnotationListProps) {
   const annotations = currentImage?.annotations || [];
 
   const handleDelete = async (annotationId: string) => {
-    if (confirm('Eliminare questa annotazione?')) {
+    if (confirm('Delete this annotation?')) {
       await deleteAnnotation(palace._id, currentImage.id, annotationId);
     }
   };
@@ -53,7 +53,7 @@ export default function AnnotationList({ palace }: AnnotationListProps) {
         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
       >
         <Plus className="w-5 h-5" />
-        Nuova Annotazione
+        New Annotation
       </button>
 
       <button
@@ -61,19 +61,19 @@ export default function AnnotationList({ palace }: AnnotationListProps) {
         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm"
       >
         <Sparkles className="w-5 h-5" />
-        Genera con AI
+        Generate with AI
       </button>
 
       {annotations.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p className="text-sm font-medium">Nessuna annotazione</p>
-          <p className="text-xs mt-1">Aggiungine una per iniziare</p>
+          <p className="text-sm font-medium">No annotations</p>
+          <p className="text-xs mt-1">Add one to get started</p>
         </div>
       ) : (
         <div className="space-y-3">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {annotations.length} {annotations.length === 1 ? 'Annotazione' : 'Annotazioni'}
+            {annotations.length} {annotations.length === 1 ? 'Annotation' : 'Annotations'}
           </h3>
 
           {annotations.map((annotation) => (
@@ -161,7 +161,7 @@ function AnnotationCard({ annotation, isExpanded, onView, onEdit, onDelete }: An
             <button
               onClick={onView}
               className="p-1.5 hover:bg-blue-100 rounded transition-colors"
-              title={isExpanded ? "Riduci" : "Espandi"}
+              title={isExpanded ? "Collapse" : "Expand"}
             >
               {isExpanded ? (
                 <ChevronUp className="w-4 h-4 text-blue-600" />
@@ -173,7 +173,7 @@ function AnnotationCard({ annotation, isExpanded, onView, onEdit, onDelete }: An
             <button
               onClick={onEdit}
               className="p-1.5 hover:bg-green-100 rounded transition-colors"
-              title="Modifica"
+              title="Edit"
             >
               <Edit2 className="w-4 h-4 text-green-600" />
             </button>
@@ -181,7 +181,7 @@ function AnnotationCard({ annotation, isExpanded, onView, onEdit, onDelete }: An
             <button
               onClick={onDelete}
               className="p-1.5 hover:bg-red-100 rounded transition-colors"
-              title="Elimina"
+              title="Delete"
             >
               <Trash2 className="w-4 h-4 text-red-600" />
             </button>

@@ -44,29 +44,29 @@ export default function Settings({ onClose }: SettingsProps) {
   };
 
   const handleSaveGeminiKey = () => {
-    if (!geminiKey.trim()) { showMsg('Inserisci una API key valida', false); return; }
+    if (!geminiKey.trim()) { showMsg('Enter a valid API key', false); return; }
     saveGeminiKey(geminiKey.trim());
     autoDetectProvider().catch(() => {});
-    showMsg('Gemini API key salvata');
+    showMsg('Gemini API key saved');
   };
 
   const handleSaveOpenaiKey = () => {
     if (!openaiKey.trim() || !openaiKey.startsWith('sk-')) {
-      showMsg('La OpenAI key deve iniziare con "sk-"', false);
+      showMsg('The OpenAI key must start with "sk-"', false);
       return;
     }
     saveOpenAIKey(openaiKey.trim());
     autoDetectProvider().catch(() => {});
-    showMsg('OpenAI API key salvata');
+    showMsg('OpenAI API key saved');
   };
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
       await exportBackup(palaces);
-      showMsg('Backup esportato');
+      showMsg('Backup exported');
     } catch (e) {
-      showMsg('Errore durante l\'export', false);
+      showMsg('Error during export', false);
     } finally {
       setIsExporting(false);
     }
@@ -77,17 +77,17 @@ export default function Settings({ onClose }: SettingsProps) {
     try {
       await importBackup();
       await loadPalaces();
-      showMsg('Backup importato con successo');
+      showMsg('Backup imported successfully');
     } catch (e) {
-      showMsg('Errore durante l\'import: ' + (e as Error).message, false);
+      showMsg('Error during import: ' + (e as Error).message, false);
     } finally {
       setIsImporting(false);
     }
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm('ATTENZIONE: Eliminerà tutti i palazzi e i dati.\n\nSei sicuro?')) return;
-    if (!window.confirm('Conferma definitiva: vuoi eliminare tutto?')) return;
+    if (!window.confirm('WARNING: This will delete all palaces and data.\n\nAre you sure?')) return;
+    if (!window.confirm('Final confirmation: do you want to delete everything?')) return;
 
     setIsDeleting(true);
     try {
@@ -98,9 +98,9 @@ export default function Settings({ onClose }: SettingsProps) {
       // Clear AI keys
       clearGeminiKey();
       clearOpenAIKey();
-      showMsg('Tutti i dati eliminati');
+      showMsg('All data deleted');
     } catch (e) {
-      showMsg('Errore durante l\'eliminazione', false);
+      showMsg('Error during deletion', false);
     } finally {
       setIsDeleting(false);
     }
@@ -111,7 +111,7 @@ export default function Settings({ onClose }: SettingsProps) {
       <div className="bg-surface border border-white/10 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10">
-          <h2 className="text-xl font-bold text-foreground">Impostazioni</h2>
+          <h2 className="text-xl font-bold text-foreground">Settings</h2>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
             <X className="w-5 h-5 text-muted" />
           </button>
@@ -130,13 +130,13 @@ export default function Settings({ onClose }: SettingsProps) {
           {/* Statistics */}
           <section>
             <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Info className="w-4 h-4" /> Statistiche
+              <Info className="w-4 h-4" /> Statistics
             </h3>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: 'Palazzi', value: stats.palaceCount },
-                { label: 'Immagini', value: stats.imageCount },
-                { label: 'Annotazioni', value: stats.annotationCount },
+                { label: 'Palaces', value: stats.palaceCount },
+                { label: 'Images', value: stats.imageCount },
+                { label: 'Annotations', value: stats.annotationCount },
               ].map(({ label, value }) => (
                 <div key={label} className="p-3 bg-background rounded-lg text-center">
                   <p className="text-2xl font-bold text-accent">{value}</p>
@@ -153,14 +153,14 @@ export default function Settings({ onClose }: SettingsProps) {
             </h3>
             <div className="space-y-4">
               <p className="text-xs text-muted">
-                Memorium usa AI locale (Ollama) se disponibile, altrimenti Gemini o OpenAI.
-                Aggiungi una key per abilitare il provider cloud.
+                Mnemorium uses local AI (Ollama) if available, otherwise Gemini or OpenAI.
+                Add a key to enable the cloud provider.
               </p>
 
               {/* Gemini */}
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1.5">
-                  Gemini API Key (gratuita)
+                  Gemini API Key (free)
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -187,7 +187,7 @@ export default function Settings({ onClose }: SettingsProps) {
                   </button>
                   {getGeminiKey() && (
                     <button
-                      onClick={() => { clearGeminiKey(); setGeminiKey(''); showMsg('Gemini key rimossa'); }}
+                      onClick={() => { clearGeminiKey(); setGeminiKey(''); showMsg('Gemini key removed'); }}
                       className="px-3 py-2 bg-danger/10 text-danger text-sm rounded-lg hover:bg-danger/20 transition-colors"
                     >
                       <X className="w-4 h-4" />
@@ -226,7 +226,7 @@ export default function Settings({ onClose }: SettingsProps) {
                   </button>
                   {getOpenAIKey() && (
                     <button
-                      onClick={() => { clearOpenAIKey(); setOpenaiKey(''); showMsg('OpenAI key rimossa'); }}
+                      onClick={() => { clearOpenAIKey(); setOpenaiKey(''); showMsg('OpenAI key removed'); }}
                       className="px-3 py-2 bg-danger/10 text-danger text-sm rounded-lg hover:bg-danger/20 transition-colors"
                     >
                       <X className="w-4 h-4" />
@@ -240,7 +240,7 @@ export default function Settings({ onClose }: SettingsProps) {
           {/* Data Management */}
           <section>
             <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3">
-              Gestione Dati
+              Data Management
             </h3>
             <div className="space-y-2">
               <button
@@ -253,9 +253,9 @@ export default function Settings({ onClose }: SettingsProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {isExporting ? 'Esportazione...' : 'Esporta Backup'}
+                    {isExporting ? 'Exporting...' : 'Export Backup'}
                   </p>
-                  <p className="text-xs text-muted">Salva tutti i palazzi e immagini</p>
+                  <p className="text-xs text-muted">Save all palaces and images</p>
                 </div>
               </button>
 
@@ -269,9 +269,9 @@ export default function Settings({ onClose }: SettingsProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {isImporting ? 'Importazione...' : 'Importa Backup'}
+                    {isImporting ? 'Importing...' : 'Import Backup'}
                   </p>
-                  <p className="text-xs text-muted">Ripristina da file .memorium</p>
+                  <p className="text-xs text-muted">Restore from .mnemorium file</p>
                 </div>
               </button>
 
@@ -285,9 +285,9 @@ export default function Settings({ onClose }: SettingsProps) {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-danger">
-                    {isDeleting ? 'Eliminazione...' : 'Elimina tutto'}
+                    {isDeleting ? 'Deleting...' : 'Delete everything'}
                   </p>
-                  <p className="text-xs text-muted">Rimuove tutti i dati permanentemente</p>
+                  <p className="text-xs text-muted">Permanently removes all data</p>
                 </div>
               </button>
             </div>
@@ -295,7 +295,7 @@ export default function Settings({ onClose }: SettingsProps) {
 
           <div className="pt-2 text-center">
             <p className="text-xs text-muted">
-              Memorium v2.0 · Open Source · Privacy-first
+              Mnemorium v2.0 · Open Source · Privacy-first
             </p>
           </div>
         </div>

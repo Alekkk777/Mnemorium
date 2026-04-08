@@ -1,9 +1,9 @@
 // components/annotations/ImprovedAIFlow.tsx - Flow AI ottimizzato
 import { useState } from 'react';
-import { X, Sparkles, AlertCircle, Check, ChevronRight, Eye, Trash2 } from 'lucide-react';
+import { X, Sparkles, AlertCircle, Check, ChevronRight } from 'lucide-react';
 import { Palace } from '@/types';
 import { usePalaceStore } from '@/lib/store';
-import { generateAnnotations, isAIEnabled } from '@/lib/aiGenerator';
+import { useAIGeneration } from '@/hooks/useAIGeneration';
 
 interface ImprovedAIFlowProps {
   palace: Palace;
@@ -18,78 +18,59 @@ export default function ImprovedAIFlow({ palace, onClose }: ImprovedAIFlowProps)
   const [targetCount, setTargetCount] = useState(10);
   const [generatedAnnotations, setGeneratedAnnotations] = useState<any[]>([]);
   const [selectedAnnotations, setSelectedAnnotations] = useState<Set<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState('');
 
   const { addAnnotation } = usePalaceStore();
+  const { isGenerating, error, progress, setError, generate, isAIEnabled } = useAIGeneration();
 
   const handleGenerate = async () => {
     if (!notesText.trim()) {
-      setError('Inserisci del testo da cui generare le annotazioni');
-      return;
-    }
-
-    if (!isAIEnabled()) {
-      setError('API Key OpenAI non configurata. Vai in Impostazioni per aggiungerla.');
+      setError('Enter some text to generate annotations from');
       return;
     }
 
     setCurrentStep('generating');
-    setError(null);
-    setProgress('Analizzando il testo...');
 
-    try {
-      const generated = await generateAnnotations({
-        notesText,
-        targetCount,
-        imagesCount: palace.images.length,
-        language: 'italiano',
-      });
-
-      setProgress(`Generati ${generated.length} annotazioni!`);
-      setGeneratedAnnotations(generated);
-      
-      // Seleziona tutte di default
-      setSelectedAnnotations(new Set(generated.map((_, i) => i.toString())));
-      
-      setTimeout(() => {
-        setCurrentStep('review');
-      }, 1000);
-    } catch (err) {
-      console.error('Errore generazione AI:', err);
-      setError(err instanceof Error ? err.message : 'Errore durante la generazione');
+    const generated = await generate({ notesText, targetCount, imagesCount: palace.images.length });
+    if (!generated) {
       setCurrentStep('input');
+      return;
     }
+
+    setGeneratedAnnotations(generated);
+    setSelectedAnnotations(new Set(generated.map((_, i) => i.toString())));
+    setTimeout(() => setCurrentStep('review'), 1000);
   };
 
-  const handleConfirm = () => {
-    const selected = generatedAnnotations.filter((_, i) => 
+  const handleConfirm = async () => {
+    const selected = generatedAnnotations.filter((_, i) =>
       selectedAnnotations.has(i.toString())
     );
 
-    // Aggiungi le annotazioni selezionate
-    for (const annotation of selected) {
-      const imageId = palace.images[annotation.imageIndex]?.id;
-      if (!imageId) continue;
+    // Attendi che tutte le annotazioni siano salvate nel DB prima di procedere
+    await Promise.all(
+      selected.map((annotation) => {
+        const imageId = palace.images[annotation.imageIndex]?.id;
+        if (!imageId) return Promise.resolve();
 
-      const position = {
-        x: (Math.random() - 0.5) * 2,
-        y: (Math.random() - 0.5) * 2,
-        z: (Math.random() - 0.5) * 2,
-      };
+        const position = {
+          x: (Math.random() - 0.5) * 2,
+          y: (Math.random() - 0.5) * 2,
+          z: (Math.random() - 0.5) * 2,
+        };
 
-      addAnnotation(palace._id, imageId, {
-        text: annotation.description,
-        note: annotation.note,
-        position,
-        rotation: { x: 0, y: 0, z: 0 },
-        width: 100,
-        height: 100,
-        isVisible: true,
-        selected: false,
-        isGenerated: true,
-      });
-    }
+        return addAnnotation(palace._id, imageId, {
+          text: annotation.description,
+          note: annotation.note,
+          position,
+          rotation: { x: 0, y: 0, z: 0 },
+          width: 100,
+          height: 100,
+          isVisible: true,
+          selected: false,
+          isGenerated: true,
+        });
+      })
+    );
 
     setCurrentStep('complete');
     setTimeout(() => onClose(), 2000);
@@ -115,13 +96,13 @@ export default function ImprovedAIFlow({ palace, onClose }: ImprovedAIFlowProps)
               <Sparkles className="w-6 h-6 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Genera con AI</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Generate with AI</h2>
               <p className="text-sm text-gray-600">
-                {currentStep === 'input' && 'Incolla i tuoi appunti'}
-                {currentStep === 'preview' && 'Anteprima configurazione'}
-                {currentStep === 'generating' && 'Generazione in corso...'}
-                {currentStep === 'review' && 'Rivedi e seleziona'}
-                {currentStep === 'complete' && 'Completato!'}
+                {currentStep === 'input' && 'Paste your notes'}
+                {currentStep === 'preview' && 'Configuration preview'}
+                {currentStep === 'generating' && 'Generating...'}
+                {currentStep === 'review' && 'Review and select'}
+                {currentStep === 'complete' && 'Completed!'}
               </p>
             </div>
           </div>
@@ -139,8 +120,8 @@ export default function ImprovedAIFlow({ palace, onClose }: ImprovedAIFlowProps)
           <div className="flex items-center justify-between">
             {[
               { key: 'input', label: 'Input' },
-              { key: 'generating', label: 'Genera' },
-              { key: 'review', label: 'Rivedi' },
+              { key: 'generating', label: 'Generate' },
+              { key: 'review', label: 'Review' },
             ].map((step, index) => (
               <div key={step.key} className="flex items-center flex-1">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
@@ -175,9 +156,9 @@ export default function ImprovedAIFlow({ palace, onClose }: ImprovedAIFlowProps)
                 <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex gap-3">
                   <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-yellow-800">
-                    <p className="font-medium mb-1">API Key non configurata</p>
+                    <p className="font-medium mb-1">API Key not configured</p>
                     <p>
-                      Vai in Impostazioni e aggiungi la tua OpenAI API key per usare questa funzione.
+                      Go to Settings and add your OpenAI API key to use this feature.
                     </p>
                   </div>
                 </div>
@@ -185,30 +166,30 @@ export default function ImprovedAIFlow({ palace, onClose }: ImprovedAIFlowProps)
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Appunti da Memorizzare
+                  Notes to Memorize
                 </label>
                 <textarea
                   value={notesText}
                   onChange={(e) => setNotesText(e.target.value)}
-                  placeholder="Incolla qui i tuoi appunti o il testo che vuoi memorizzare...
+                  placeholder="Paste your notes or the text you want to memorize here...
 
-Esempio:
-- Il glucosio (C6H12O6) è un monosaccaride
-- Struttura ad anello a 6 atomi di carbonio
-- Fonte primaria di energia per le cellule"
+Example:
+- Glucose (C6H12O6) is a monosaccharide
+- Ring structure with 6 carbon atoms
+- Primary energy source for cells"
                   rows={12}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none font-mono text-sm"
                   disabled={!isAIEnabled()}
                 />
                 <div className="mt-2 flex justify-between items-center text-xs text-gray-500">
-                  <span>{notesText.length} caratteri</span>
-                  <span>Consigliato: 500-2000 caratteri</span>
+                  <span>{notesText.length} characters</span>
+                  <span>Recommended: 500-2000 characters</span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Numero di Annotazioni da Generare
+                  Number of Annotations to Generate
                 </label>
                 <input
                   type="number"
@@ -220,7 +201,7 @@ Esempio:
                   disabled={!isAIEnabled()}
                 />
                 <p className="text-xs text-gray-500 mt-2">
-                  Verranno distribuite tra le {palace.images.length} immagini del palazzo
+                  They will be distributed across the {palace.images.length} images of the palace
                 </p>
               </div>
 
@@ -236,7 +217,7 @@ Esempio:
                   className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                   disabled={!isAIEnabled()}
                 >
-                  Annulla
+                  Cancel
                 </button>
                 <button
                   onClick={handleGenerate}
@@ -244,7 +225,7 @@ Esempio:
                   className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Genera Annotazioni
+                  Generate Annotations
                 </button>
               </div>
             </div>
@@ -260,7 +241,7 @@ Esempio:
                 </div>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Generazione in corso...
+                Generating...
               </h3>
               <p className="text-gray-600">{progress}</p>
             </div>
@@ -272,10 +253,10 @@ Esempio:
               <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
                 <div>
                   <p className="font-medium text-purple-900">
-                    {selectedAnnotations.size} annotazioni selezionate
+                    {selectedAnnotations.size} annotations selected
                   </p>
                   <p className="text-sm text-purple-700">
-                    Deseleziona quelle che non vuoi aggiungere
+                    Deselect the ones you don&apos;t want to add
                   </p>
                 </div>
                 <button
@@ -286,7 +267,7 @@ Esempio:
                   )}
                   className="text-sm text-purple-600 hover:text-purple-700 font-medium"
                 >
-                  {selectedAnnotations.size === generatedAnnotations.length ? 'Deseleziona tutte' : 'Seleziona tutte'}
+                  {selectedAnnotations.size === generatedAnnotations.length ? 'Deselect all' : 'Select all'}
                 </button>
               </div>
 
@@ -317,7 +298,7 @@ Esempio:
                             {annotation.description}
                           </h4>
                           <span className="text-xs text-gray-500">
-                            Stanza {annotation.imageIndex + 1}
+                            Room {annotation.imageIndex + 1}
                           </span>
                         </div>
                         <p className="text-sm text-gray-600">{annotation.note}</p>
@@ -332,14 +313,14 @@ Esempio:
                   onClick={() => setCurrentStep('input')}
                   className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  Indietro
+                  Back
                 </button>
                 <button
                   onClick={handleConfirm}
                   disabled={selectedAnnotations.size === 0}
                   className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
                 >
-                  Aggiungi {selectedAnnotations.size} Annotazioni
+                  Add {selectedAnnotations.size} Annotations
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -355,10 +336,10 @@ Esempio:
                 </div>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Annotazioni Aggiunte!
+                Annotations Added!
               </h3>
               <p className="text-gray-600">
-                Le annotazioni sono state aggiunte al tuo palazzo.
+                The annotations have been added to your palace.
               </p>
             </div>
           )}
