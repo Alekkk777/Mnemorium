@@ -26,7 +26,7 @@ All data is stored **locally on your machine** in SQLite. No account, no cloud, 
 
 ## Download
 
-Go to **[mnemorium.com](https://mnemorium.com)** or the [GitHub Releases](https://github.com/Alekkk777/Mnemorium_open_v2/releases) page and download the installer for your platform:
+Go to **[mnemorium.com](https://mnemorium.com)** or the [GitHub Releases](https://github.com/Alekkk777/Mnemorium/releases) page and download the installer for your platform:
 
 | Platform | File |
 |----------|------|
@@ -40,8 +40,8 @@ Go to **[mnemorium.com](https://mnemorium.com)** or the [GitHub Releases](https:
 **Prerequisites:** [Rust](https://rustup.rs/), [Node.js 20+](https://nodejs.org/), Python 3.11+
 
 ```bash
-git clone https://github.com/Alekkk777/Mnemorium_open_v2.git
-cd Mnemorium_open_v2
+git clone https://github.com/Alekkk777/Mnemorium.git
+cd Mnemorium
 
 # Build the Python AI server (bundles it as a standalone executable)
 python3 scripts/build_python_server.py

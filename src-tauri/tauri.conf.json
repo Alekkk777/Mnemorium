@@ -52,7 +52,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ1NTMxRTQ5MjMyQjQ5QTEKUldTaFNTc2pTUjVUMVFLUzkyNEsxRWNhVnZCWXBzcnVCNDN2a2d2VC9vc0FnVkxFUWxGUWVSaG8K",
       "endpoints": [
-        "https://github.com/Alekkk777/Mnemorium_open_v2/releases/latest/download/latest.json"
+        "https://github.com/Alekkk777/Mnemorium/releases/latest/download/latest.json"
       ]
     },
     "shell": {

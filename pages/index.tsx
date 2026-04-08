@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
 
-const GITHUB_REPO = 'Alekkk777/Mnemorium_open_v2';
+const GITHUB_REPO = 'Alekkk777/Mnemorium';
 const SITE_URL = 'https://mnemorium.com';
 const VERSION = '2.1.0';
 
