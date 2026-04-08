@@ -2,23 +2,17 @@
 import type { AppProps } from 'next/app';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import '../styles/globals.css';
 import { usePalaceStore } from '@/lib/store';
 import { getSetting } from '@/lib/tauriStorage';
 import AIStatusBar from '@/components/ui/AIStatusBar';
 import SetupWizard from '@/components/ui/SetupWizard';
 import MigrationDialog from '@/components/ui/MigrationDialog';
-import { autoDetectProvider } from '@/lib/aiProvider';
-import { setActiveProviderType } from '@/lib/aiProvider';
+import { autoDetectProvider, setActiveProviderType } from '@/lib/aiProvider';
 import { AIProviderType } from '@/types/ai';
-
-const isTauri = () => typeof window !== 'undefined' && !!(window as any).__TAURI__;
 
 function MyApp({ Component, pageProps }: AppProps) {
   const { loadPalaces } = usePalaceStore();
-  const router = useRouter();
-  const isLanding = router.pathname === '/';
 
   const [appReady, setAppReady] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -26,25 +20,13 @@ function MyApp({ Component, pageProps }: AppProps) {
   const [migrationDone, setMigrationDone] = useState(false);
 
   useEffect(() => {
-    // In Tauri: landing page is only for the web — redirect to the app
-    if (isLanding && isTauri()) {
-      router.replace('/userhome');
-      return;
-    }
-
-    // Landing page in browser (Vercel) — skip all Tauri boot logic
-    if (isLanding && !isTauri()) {
-      setAppReady(true);
-      return;
-    }
-
     async function boot() {
       try {
         // 1. Check if setup wizard has been completed
         const wizardDone = await getSetting<boolean>('setup_wizard_done').catch(() => null);
         if (!wizardDone) {
           setShowWizard(true);
-          return; // Migration will run after wizard
+          return;
         }
 
         // 2. Restore AI provider from settings
@@ -58,10 +40,9 @@ function MyApp({ Component, pageProps }: AppProps) {
         // 3. Load palaces from SQLite
         await loadPalaces();
 
-        // 4. Check if migration from web app is needed (MigrationDialog auto-completes if nothing to do)
+        // 4. Check if migration from web app is needed
         const migrationDone = await getSetting<boolean>('migration_v2_done').catch(() => null);
         if (migrationDone) {
-          // Already migrated — skip dialog, show app directly
           setAppReady(true);
         } else {
           setShowMigration(true);
@@ -73,11 +54,10 @@ function MyApp({ Component, pageProps }: AppProps) {
     }
 
     boot();
-  }, [isLanding]);
+  }, []);
 
   async function onWizardComplete() {
     setShowWizard(false);
-    // After wizard: check migration, then load
     await loadPalaces().catch(() => {});
     setShowMigration(true);
   }
@@ -96,24 +76,17 @@ function MyApp({ Component, pageProps }: AppProps) {
         <title>Mnemorium</title>
       </Head>
 
-      {/* Setup Wizard (first launch) */}
       {showWizard && <SetupWizard onComplete={onWizardComplete} />}
 
-      {/* Migration Dialog (from web PWA to Tauri SQLite) */}
       {showMigration && !showWizard && (
         <MigrationDialog onComplete={onMigrationComplete} />
       )}
 
-      {/* Main App — landing page renders only in browser; in Tauri redirect to /userhome */}
-      {isLanding && !isTauri() ? (
-        <Component {...pageProps} />
-      ) : (
-        !isLanding && (appReady || migrationDone) && !showWizard && (
-          <>
-            <Component {...pageProps} />
-            <AIStatusBar />
-          </>
-        )
+      {(appReady || migrationDone) && !showWizard && (
+        <>
+          <Component {...pageProps} />
+          <AIStatusBar />
+        </>
       )}
     </>
   );
