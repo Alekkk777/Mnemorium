@@ -103,3 +103,38 @@ pub async fn read_image_as_base64(
     let bytes = std::fs::read(&abs_path).map_err(|e| e.to_string())?;
     Ok(general_purpose::STANDARD.encode(&bytes))
 }
+
+/// Copy an image from an arbitrary absolute path (e.g. user's Downloads/Pictures)
+/// directly into the app data images directory — no base64 roundtrip.
+#[tauri::command]
+pub async fn copy_image_from_path(
+    app: AppHandle,
+    src_path: String,
+    subdir: Option<String>,
+) -> Result<SaveImageResult, String> {
+    let src = std::path::Path::new(&src_path);
+    if !src.exists() {
+        return Err(format!("Source file not found: {}", src_path));
+    }
+
+    let subdir = subdir.as_deref().unwrap_or("palace_images");
+    let dir = images_dir(&app).join(subdir);
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let ext = src
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg");
+
+    let file_id = Uuid::new_v4().to_string().replace('-', "");
+    let file_name = format!("{}.{}", file_id, ext);
+    let abs_dest = dir.join(&file_name);
+
+    std::fs::copy(src, &abs_dest).map_err(|e| e.to_string())?;
+
+    let relative_path = format!("{}/{}", subdir, file_name);
+    Ok(SaveImageResult {
+        relative_path,
+        absolute_path: abs_dest.to_string_lossy().to_string(),
+    })
+}

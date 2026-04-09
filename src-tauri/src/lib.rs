@@ -59,6 +59,7 @@ pub fn run() {
             commands::annotation::delete_annotation,
             // Images
             commands::image::save_image_file,
+            commands::image::copy_image_from_path,
             commands::image::get_image_url,
             commands::image::delete_image_file,
             commands::image::read_image_as_base64,
