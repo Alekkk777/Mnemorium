@@ -5,35 +5,35 @@ const GITHUB_REPO = 'Alekkk777/Mnemorium';
 const SITE_URL = 'https://mnemorium.com';
 const VERSION = '2.1.0';
 
-const RELEASE_BASE = `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}`;
+const RELEASES_PAGE = `https://github.com/${GITHUB_REPO}/releases/latest`;
 
 const DOWNLOADS = [
   {
     label: 'macOS Apple Silicon',
     sublabel: 'M1 / M2 / M3',
     icon: '🍎',
-    href: `${RELEASE_BASE}/Mnemorium_${VERSION}_aarch64.dmg`,
+    href: RELEASES_PAGE,
     ext: '.dmg',
   },
   {
     label: 'macOS Intel',
     sublabel: 'x86_64',
     icon: '🍎',
-    href: `${RELEASE_BASE}/Mnemorium_${VERSION}_x64.dmg`,
+    href: RELEASES_PAGE,
     ext: '.dmg',
   },
   {
     label: 'Windows',
     sublabel: '64-bit installer',
     icon: '🪟',
-    href: `${RELEASE_BASE}/Mnemorium_${VERSION}_x64-setup.exe`,
+    href: RELEASES_PAGE,
     ext: '.exe',
   },
   {
     label: 'Linux',
     sublabel: 'AppImage',
     icon: '🐧',
-    href: `${RELEASE_BASE}/mnemorium_${VERSION}_amd64.AppImage`,
+    href: RELEASES_PAGE,
     ext: '.AppImage',
   },
 ];
